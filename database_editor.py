@@ -83,11 +83,13 @@ class DatabaseEditor(tk.Toplevel):
         self.effects_tab = self._create_effects_tab()
         self.genes_tab = self._create_genes_tab()
         self.milestones_tab = self._create_milestones_tab()
+        self.settings_tab = self._create_settings_tab()
 
         self.notebook.add(self.entities_tab, text="Entities")
         self.notebook.add(self.effects_tab, text="Effects")
         self.notebook.add(self.genes_tab, text="Genes")
         self.notebook.add(self.milestones_tab, text="Milestones")
+        self.notebook.add(self.settings_tab, text="Global Settings")
 
     def _create_list_frame(self, parent, search_callback, select_callback) -> tuple:
         """Create a standard list frame with search and filter."""
@@ -1335,6 +1337,181 @@ class DatabaseEditor(tk.Toplevel):
             self._filter_milestones()
             self._update_status()
 
+    # ==================== GLOBAL SETTINGS TAB ====================
+
+    def _create_settings_tab(self) -> ttk.Frame:
+        """Create the global settings tab."""
+        tab = ttk.Frame(self.notebook)
+
+        # Create a canvas with scrollbar for the settings
+        canvas = tk.Canvas(tab)
+        scrollbar = ttk.Scrollbar(tab, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Main container with padding
+        main_frame = ttk.Frame(scrollable_frame)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # ===== DEGRADATION SECTION =====
+        ttk.Label(main_frame, text="Degradation Chances",
+                  font=('TkDefaultFont', 12, 'bold')).pack(anchor='w', pady=(0, 5))
+
+        ttk.Label(main_frame, text="Set the base degradation chance (%) per turn for each entity category at each location.",
+                  wraplength=800).pack(anchor='w', pady=(0, 10))
+
+        # Create a frame for the degradation grid
+        grid_frame = ttk.LabelFrame(main_frame, text="Degradation % per Turn")
+        grid_frame.pack(fill=tk.X)
+
+        # Column headers (locations)
+        locations = [loc.value for loc in CellLocation]
+        categories = [cat.value for cat in EntityCategory]
+
+        # Store entry widgets for later access
+        self.degradation_entries = {}
+
+        # Header row
+        ttk.Label(grid_frame, text="Category \\ Location", font=('TkDefaultFont', 9, 'bold'),
+                  width=15).grid(row=0, column=0, padx=5, pady=5, sticky='w')
+
+        for col, location in enumerate(locations, start=1):
+            ttk.Label(grid_frame, text=location, font=('TkDefaultFont', 9, 'bold'),
+                      width=12).grid(row=0, column=col, padx=2, pady=5)
+
+        # Data rows
+        for row, category in enumerate(categories, start=1):
+            ttk.Label(grid_frame, text=category, width=15).grid(
+                row=row, column=0, padx=5, pady=2, sticky='w')
+
+            for col, location in enumerate(locations, start=1):
+                var = tk.StringVar()
+                entry = ttk.Entry(grid_frame, textvariable=var, width=8)
+                entry.grid(row=row, column=col, padx=2, pady=2)
+
+                # Store reference
+                self.degradation_entries[(category, location)] = var
+
+        # ===== INTERFERON MODIFIER SECTION =====
+        ttk.Separator(main_frame, orient='horizontal').pack(fill=tk.X, pady=15)
+
+        ttk.Label(main_frame, text="Interferon Degradation Modifiers",
+                  font=('TkDefaultFont', 12, 'bold')).pack(anchor='w', pady=(0, 5))
+
+        ttk.Label(main_frame, text="Set the % increase in degradation chance at maximum interferon level (100) for each category. "
+                  "100% means degradation doubles. The modifier scales linearly with interferon level.",
+                  wraplength=800).pack(anchor='w', pady=(0, 10))
+
+        # Create a frame for the interferon modifiers
+        ifn_frame = ttk.LabelFrame(main_frame, text="Interferon Modifier % (at max interferon)")
+        ifn_frame.pack(fill=tk.X)
+
+        # Store interferon modifier entries
+        self.interferon_entries = {}
+
+        # Create entries for each category
+        for row, category in enumerate(categories):
+            ttk.Label(ifn_frame, text=category, width=15).grid(
+                row=row, column=0, padx=5, pady=2, sticky='w')
+
+            var = tk.StringVar()
+            entry = ttk.Entry(ifn_frame, textvariable=var, width=10)
+            entry.grid(row=row, column=1, padx=5, pady=2, sticky='w')
+
+            ttk.Label(ifn_frame, text="%").grid(row=row, column=2, padx=2, pady=2, sticky='w')
+
+            self.interferon_entries[category] = var
+
+        # ===== BUTTONS =====
+        ttk.Separator(main_frame, orient='horizontal').pack(fill=tk.X, pady=15)
+
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Button(btn_frame, text="Apply All Changes",
+                   command=self._apply_all_settings).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Reset All to Defaults",
+                   command=self._reset_all_settings_to_defaults).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Reload from Database",
+                   command=self._load_all_settings).pack(side=tk.LEFT, padx=5)
+
+        # Info label
+        info_text = ("Example: If RNA has base degradation 6% in Cytosol and interferon modifier 100%, "
+                     "at interferon level 50, actual degradation = 6% * (1 + 100% * 50/100) = 9%. "
+                     "Final degradation is capped at 100%.")
+        ttk.Label(main_frame, text=info_text, wraplength=800,
+                  font=('TkDefaultFont', 9, 'italic')).pack(anchor='w', pady=10)
+
+        return tab
+
+    def _load_degradation_values(self):
+        """Load degradation values from the database into the entry fields."""
+        for (category, location), var in self.degradation_entries.items():
+            value = self.database.get_degradation_chance(category, location)
+            var.set(f"{value:.1f}")
+
+    def _load_interferon_values(self):
+        """Load interferon modifier values from the database into the entry fields."""
+        for category, var in self.interferon_entries.items():
+            value = self.database.get_interferon_modifier(category)
+            var.set(f"{value:.1f}")
+
+    def _load_all_settings(self):
+        """Load all settings from the database."""
+        self._load_degradation_values()
+        self._load_interferon_values()
+
+    def _apply_all_settings(self):
+        """Apply all settings changes to the database."""
+        errors = []
+
+        # Validate and apply degradation chances
+        for (category, location), var in self.degradation_entries.items():
+            value_str = var.get().strip()
+            try:
+                value = float(value_str)
+                if value < 0 or value > 100:
+                    errors.append(f"Degradation {category}/{location}: Value must be between 0 and 100")
+                else:
+                    self.database.set_degradation_chance(category, location, value)
+            except ValueError:
+                errors.append(f"Degradation {category}/{location}: Invalid number '{value_str}'")
+
+        # Validate and apply interferon modifiers (can be > 100)
+        for category, var in self.interferon_entries.items():
+            value_str = var.get().strip()
+            try:
+                value = float(value_str)
+                if value < 0:
+                    errors.append(f"Interferon {category}: Value must be >= 0")
+                else:
+                    self.database.set_interferon_modifier(category, value)
+            except ValueError:
+                errors.append(f"Interferon {category}: Invalid number '{value_str}'")
+
+        if errors:
+            messagebox.showerror("Validation Errors",
+                                "The following errors were found:\n\n" + "\n".join(errors[:10]))
+        else:
+            self._update_status()
+            messagebox.showinfo("Success", "All settings updated.")
+
+    def _reset_all_settings_to_defaults(self):
+        """Reset all settings to default values."""
+        if messagebox.askyesno("Reset Defaults",
+                               "Reset all degradation and interferon settings to default values?"):
+            self.database.reset_degradation_to_defaults()
+            self.database.reset_interferon_modifiers_to_defaults()
+            self._load_all_settings()
+            self._update_status()
+            messagebox.showinfo("Reset", "All settings reset to defaults.")
+
     # ==================== DATABASE OPERATIONS ====================
 
     def _new_database(self):
@@ -1413,6 +1590,7 @@ class DatabaseEditor(tk.Toplevel):
         self._filter_effects()
         self._filter_genes()
         self._filter_milestones()
+        self._load_all_settings()
 
     def _update_status(self):
         """Update the status bar."""

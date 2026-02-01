@@ -19,7 +19,7 @@ class CellLocation(Enum):
     EXTRACELLULAR = "Extracellular"
     MEMBRANE = "Membrane"
     ENDOSOME = "Endosome"
-    GOLGI = "Golgi"
+    ER = "ER"
     CYTOSOL = "Cytosol"
     NUCLEUS = "Nucleus"
 

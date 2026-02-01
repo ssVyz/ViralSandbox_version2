@@ -5,7 +5,62 @@ Manages loading, saving, and manipulating game databases.
 import json
 from pathlib import Path
 from typing import Optional
-from models import ViralEntity, Effect, Gene, Milestone
+from models import ViralEntity, Effect, Gene, Milestone, EntityCategory, CellLocation
+
+
+# Default degradation chances per category per location (percentage per turn)
+DEFAULT_DEGRADATION_CHANCES = {
+    EntityCategory.VIRION.value: {
+        CellLocation.EXTRACELLULAR.value: 2.0,
+        CellLocation.MEMBRANE.value: 3.0,
+        CellLocation.ENDOSOME.value: 5.0,
+        CellLocation.ER.value: 4.0,
+        CellLocation.CYTOSOL.value: 3.0,
+        CellLocation.NUCLEUS.value: 2.0,
+    },
+    EntityCategory.VIRAL_COMPLEX.value: {
+        CellLocation.EXTRACELLULAR.value: 5.0,
+        CellLocation.MEMBRANE.value: 4.0,
+        CellLocation.ENDOSOME.value: 6.0,
+        CellLocation.ER.value: 5.0,
+        CellLocation.CYTOSOL.value: 4.0,
+        CellLocation.NUCLEUS.value: 3.0,
+    },
+    EntityCategory.DNA.value: {
+        CellLocation.EXTRACELLULAR.value: 10.0,
+        CellLocation.MEMBRANE.value: 8.0,
+        CellLocation.ENDOSOME.value: 7.0,
+        CellLocation.ER.value: 6.0,
+        CellLocation.CYTOSOL.value: 5.0,
+        CellLocation.NUCLEUS.value: 2.0,
+    },
+    EntityCategory.RNA.value: {
+        CellLocation.EXTRACELLULAR.value: 15.0,
+        CellLocation.MEMBRANE.value: 12.0,
+        CellLocation.ENDOSOME.value: 10.0,
+        CellLocation.ER.value: 8.0,
+        CellLocation.CYTOSOL.value: 6.0,
+        CellLocation.NUCLEUS.value: 4.0,
+    },
+    EntityCategory.PROTEIN.value: {
+        CellLocation.EXTRACELLULAR.value: 8.0,
+        CellLocation.MEMBRANE.value: 6.0,
+        CellLocation.ENDOSOME.value: 7.0,
+        CellLocation.ER.value: 5.0,
+        CellLocation.CYTOSOL.value: 4.0,
+        CellLocation.NUCLEUS.value: 3.0,
+    },
+}
+
+# Default interferon modifiers per category (percentage at max interferon level)
+# 100% means degradation chance doubles at max interferon (100)
+DEFAULT_INTERFERON_MODIFIERS = {
+    EntityCategory.VIRION.value: 50.0,
+    EntityCategory.VIRAL_COMPLEX.value: 75.0,
+    EntityCategory.DNA.value: 25.0,
+    EntityCategory.RNA.value: 100.0,
+    EntityCategory.PROTEIN.value: 50.0,
+}
 
 
 class GameDatabase:
@@ -30,6 +85,8 @@ class GameDatabase:
         self.effects: dict[int, Effect] = {}
         self.genes: dict[int, Gene] = {}
         self.milestones: dict[int, Milestone] = {}
+        self.degradation_chances: dict[str, dict[str, float]] = {}
+        self.interferon_modifiers: dict[str, float] = {}
         self.filepath: Optional[Path] = None
         self.modified: bool = False
 
@@ -38,6 +95,16 @@ class GameDatabase:
         self._next_effect_id = 1
         self._next_gene_id = 1
         self._next_milestone_id = 1
+
+    def _init_default_degradation(self):
+        """Initialize degradation chances with default values."""
+        import copy
+        self.degradation_chances = copy.deepcopy(DEFAULT_DEGRADATION_CHANCES)
+
+    def _init_default_interferon_modifiers(self):
+        """Initialize interferon modifiers with default values."""
+        import copy
+        self.interferon_modifiers = copy.deepcopy(DEFAULT_INTERFERON_MODIFIERS)
 
     def _create_predefined_entities(self):
         """Create the predefined starter entities."""
@@ -114,6 +181,10 @@ class GameDatabase:
         # Always create predefined entities
         self._create_predefined_entities()
 
+        # Initialize default degradation chances and interferon modifiers
+        self._init_default_degradation()
+        self._init_default_interferon_modifiers()
+
     def load(self, filepath: str) -> bool:
         """Load a database from a JSON file."""
         try:
@@ -156,6 +227,16 @@ class GameDatabase:
             # Validate gene types - clear any that reference invalid entities
             self.validate_gene_types()
 
+            # Load degradation chances (or use defaults if not present)
+            if "degradation_chances" in data:
+                self.degradation_chances = data["degradation_chances"]
+            # else: defaults were already set by new_database()
+
+            # Load interferon modifiers (or use defaults if not present)
+            if "interferon_modifiers" in data:
+                self.interferon_modifiers = data["interferon_modifiers"]
+            # else: defaults were already set by new_database()
+
             self.modified = False
             return True
 
@@ -177,7 +258,9 @@ class GameDatabase:
                 "entities": [e.to_dict() for e in self.entities.values()],
                 "effects": [e.to_dict() for e in self.effects.values()],
                 "genes": [g.to_dict() for g in self.genes.values()],
-                "milestones": [m.to_dict() for m in self.milestones.values()]
+                "milestones": [m.to_dict() for m in self.milestones.values()],
+                "degradation_chances": self.degradation_chances,
+                "interferon_modifiers": self.interferon_modifiers
             }
 
             with open(path, 'w', encoding='utf-8') as f:
@@ -389,3 +472,37 @@ class GameDatabase:
                 if entity is None or entity.category != "Protein":
                     gene.gene_type_entity_id = None
                     self.modified = True
+
+    # Degradation chance methods
+    def get_degradation_chance(self, category: str, location: str) -> float:
+        """Get the degradation chance for a category at a location."""
+        if category in self.degradation_chances:
+            return self.degradation_chances[category].get(location, 5.0)
+        return 5.0  # Default fallback
+
+    def set_degradation_chance(self, category: str, location: str, chance: float):
+        """Set the degradation chance for a category at a location."""
+        if category not in self.degradation_chances:
+            self.degradation_chances[category] = {}
+        self.degradation_chances[category][location] = chance
+        self.modified = True
+
+    def reset_degradation_to_defaults(self):
+        """Reset all degradation chances to default values."""
+        self._init_default_degradation()
+        self.modified = True
+
+    # Interferon modifier methods
+    def get_interferon_modifier(self, category: str) -> float:
+        """Get the interferon modifier for a category (% increase at max interferon)."""
+        return self.interferon_modifiers.get(category, 50.0)
+
+    def set_interferon_modifier(self, category: str, modifier: float):
+        """Set the interferon modifier for a category."""
+        self.interferon_modifiers[category] = modifier
+        self.modified = True
+
+    def reset_interferon_modifiers_to_defaults(self):
+        """Reset all interferon modifiers to default values."""
+        self._init_default_interferon_modifiers()
+        self.modified = True
