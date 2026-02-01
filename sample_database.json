@@ -1,0 +1,283 @@
+{
+  "entities": [
+    {
+      "id": 1,
+      "name": "Enveloped virion",
+      "category": "Virion",
+      "entity_type": "None",
+      "description": "A complete virus particle with a lipid envelope. This is a starter entity."
+    },
+    {
+      "id": 2,
+      "name": "Unenveloped virion",
+      "category": "Virion",
+      "entity_type": "None",
+      "description": "A naked virus particle without an envelope. This is a starter entity."
+    },
+    {
+      "id": 3,
+      "name": "Bound Virion",
+      "category": "Viral complex",
+      "entity_type": "None",
+      "description": "A virion bound to the cell membrane"
+    },
+    {
+      "id": 4,
+      "name": "Endocytosed Virion",
+      "category": "Viral complex",
+      "entity_type": "None",
+      "description": "A virion inside an endosome"
+    },
+    {
+      "id": 5,
+      "name": "Viral RNA",
+      "category": "RNA",
+      "entity_type": "None",
+      "description": "The viral genome in RNA form"
+    },
+    {
+      "id": 6,
+      "name": "Viral mRNA",
+      "category": "RNA",
+      "entity_type": "None",
+      "description": "Messenger RNA for viral protein synthesis"
+    },
+    {
+      "id": 7,
+      "name": "Viral DNA",
+      "category": "DNA",
+      "entity_type": "None",
+      "description": "The viral genome in DNA form"
+    },
+    {
+      "id": 8,
+      "name": "RNA Polymerase",
+      "category": "Protein",
+      "entity_type": "Polymerase",
+      "description": "Enzyme that synthesizes RNA from an RNA template"
+    },
+    {
+      "id": 9,
+      "name": "Capsid Protein",
+      "category": "Protein",
+      "entity_type": "Capsid",
+      "description": "Protein that forms the viral capsid"
+    },
+    {
+      "id": 10,
+      "name": "Surface Glycoprotein",
+      "category": "Protein",
+      "entity_type": "Surface",
+      "description": "Protein on the viral surface for cell entry"
+    }
+  ],
+  "effects": [
+    {
+      "id": 1,
+      "name": "Membrane Binding",
+      "effect_type": "Transition",
+      "category": "Entry",
+      "description": "Virion binds to cell membrane receptor",
+      "is_global": false,
+      "inputs": [
+        {"entity_id": 1, "amount": 1, "location": "Extracellular", "consumed": true}
+      ],
+      "outputs": [
+        {"entity_id": 3, "amount": 1, "location": "Membrane"}
+      ],
+      "chance": 30.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "requires_translation_mode": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 0.0,
+      "interferon_modifier": 0.0,
+      "antibody_modifier": 0.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0
+    },
+    {
+      "id": 2,
+      "name": "Endocytosis",
+      "effect_type": "Transition",
+      "category": "Entry",
+      "description": "Bound virion is internalized via endocytosis",
+      "is_global": false,
+      "inputs": [
+        {"entity_id": 3, "amount": 1, "location": "Membrane", "consumed": true}
+      ],
+      "outputs": [
+        {"entity_id": 4, "amount": 1, "location": "Endosome"}
+      ],
+      "chance": 50.0,
+      "interferon_production": 0.5,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "requires_translation_mode": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 0.0,
+      "interferon_modifier": 0.0,
+      "antibody_modifier": 0.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0
+    },
+    {
+      "id": 3,
+      "name": "Uncoating",
+      "effect_type": "Transition",
+      "category": "Entry",
+      "description": "Viral genome is released from capsid",
+      "is_global": false,
+      "inputs": [
+        {"entity_id": 4, "amount": 1, "location": "Endosome", "consumed": true}
+      ],
+      "outputs": [
+        {"entity_id": 5, "amount": 1, "location": "Cytosol"}
+      ],
+      "chance": 40.0,
+      "interferon_production": 1.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "requires_translation_mode": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 0.0,
+      "interferon_modifier": 0.0,
+      "antibody_modifier": 0.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0
+    },
+    {
+      "id": 4,
+      "name": "Enhanced Binding",
+      "effect_type": "Modify transition",
+      "category": "Entry Modifier",
+      "description": "Increases the chance of membrane binding",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "requires_translation_mode": "",
+      "target_effect_id": 1,
+      "target_category": "",
+      "chance_modifier": 15.0,
+      "interferon_modifier": 0.0,
+      "antibody_modifier": 0.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0
+    }
+  ],
+  "genes": [
+    {
+      "id": 1,
+      "name": "Spike Protein",
+      "set_name": "SARS-CoV-2",
+      "install_cost": 15,
+      "length": 1200,
+      "gene_type": "Surface",
+      "effect_ids": [1],
+      "description": "Encodes the spike glycoprotein for receptor binding"
+    },
+    {
+      "id": 2,
+      "name": "Membrane Fusion Peptide",
+      "set_name": "HIV",
+      "install_cost": 20,
+      "length": 900,
+      "gene_type": "Surface",
+      "effect_ids": [2],
+      "description": "Facilitates membrane fusion and endocytosis"
+    },
+    {
+      "id": 3,
+      "name": "Capsid Disassembly Factor",
+      "set_name": "Influenza",
+      "install_cost": 25,
+      "length": 600,
+      "gene_type": "None",
+      "effect_ids": [3],
+      "description": "Promotes efficient uncoating in endosomes"
+    },
+    {
+      "id": 4,
+      "name": "High-Affinity Receptor Binding Domain",
+      "set_name": "SARS-CoV-2",
+      "install_cost": 30,
+      "length": 450,
+      "gene_type": "None",
+      "effect_ids": [4],
+      "description": "Enhances receptor binding affinity"
+    }
+  ],
+  "milestones": [
+    {
+      "id": 1,
+      "name": "First Contact",
+      "milestone_type": "Enter compartment",
+      "reward_ep": 10,
+      "description": "Successfully bind to the cell membrane",
+      "target_compartment": "Membrane",
+      "target_entity_category": "",
+      "target_count": 0,
+      "target_turns": 0
+    },
+    {
+      "id": 2,
+      "name": "Infiltrator",
+      "milestone_type": "Enter compartment",
+      "reward_ep": 15,
+      "description": "Enter the cytosol for the first time",
+      "target_compartment": "Cytosol",
+      "target_entity_category": "",
+      "target_count": 0,
+      "target_turns": 0
+    },
+    {
+      "id": 3,
+      "name": "First Replication",
+      "milestone_type": "Produce first entity",
+      "reward_ep": 20,
+      "description": "Produce the first new virion",
+      "target_compartment": "",
+      "target_entity_category": "Virion",
+      "target_count": 0,
+      "target_turns": 0
+    },
+    {
+      "id": 4,
+      "name": "Viral Burst",
+      "milestone_type": "Produce entity count",
+      "reward_ep": 50,
+      "description": "Reach 100 virions simultaneously",
+      "target_compartment": "",
+      "target_entity_category": "Virion",
+      "target_count": 100,
+      "target_turns": 0
+    },
+    {
+      "id": 5,
+      "name": "Survivor",
+      "milestone_type": "Survive turns",
+      "reward_ep": 25,
+      "description": "Survive for 50 turns",
+      "target_compartment": "",
+      "target_entity_category": "",
+      "target_count": 0,
+      "target_turns": 50
+    }
+  ]
+}
