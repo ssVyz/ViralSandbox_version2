@@ -284,6 +284,7 @@ class BuilderModule(tk.Toplevel):
         self._update_available_genes()
         self._update_installed_genes()
         self._update_genome_visual()
+        self._update_move_buttons()
 
     def _update_status(self):
         """Update the status bar."""
@@ -642,7 +643,9 @@ class BuilderModule(tk.Toplevel):
             bg_color = gene_frame.cget('bg')
             fg_color = 'dark green'
 
-        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]"
+        # Add UTR indicator if applicable
+        utr_indicator = " [UTR]" if gene.is_utr else ""
+        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]{utr_indicator}"
 
         gene_label = tk.Label(gene_frame, text=gene_text, cursor="hand2",
                              fg=fg_color, bg=bg_color if is_selected else gene_frame.cget('bg'))
@@ -726,6 +729,7 @@ class BuilderModule(tk.Toplevel):
         self._update_available_genes()
         self._update_installed_genes()
         self._update_genome_visual()
+        self._update_move_buttons()
 
     def _show_orf_details(self, orf_name: str):
         """Show ORF details in the details panel."""
@@ -778,6 +782,26 @@ class BuilderModule(tk.Toplevel):
         else:
             self._update_installed_genes()
 
+    def _update_move_buttons(self):
+        """Update move button states based on selected item."""
+        # Default: enable both buttons
+        can_move = True
+
+        if self.selected_item:
+            item_type, item_id = self.selected_item
+            # Check if selected item is a UTR gene
+            if item_type == 'gene':
+                gene = self.game_state.get_gene(item_id)
+                if gene and gene.is_utr:
+                    can_move = False
+            # Effects can't be moved
+            elif item_type == 'effect':
+                can_move = False
+
+        state = 'normal' if can_move else 'disabled'
+        self.move_up_btn.config(state=state)
+        self.move_down_btn.config(state=state)
+
     def _select_gene(self, gene: Gene, panel: str = None):
         """Select a gene and show its details."""
         self.selected_item = ('gene', gene.id)
@@ -785,11 +809,13 @@ class BuilderModule(tk.Toplevel):
         # Refresh gene lists to show selection
         self._update_available_genes()
         self._update_installed_genes()
+        self._update_move_buttons()
 
     def _select_effect(self, effect: Effect):
         """Select an effect and show its details."""
         self.selected_item = ('effect', effect.id)
         self._show_effect_details(effect)
+        self._update_move_buttons()
 
     def _move_item_up(self):
         """Move the selected installed item (gene or ORF) up in order."""
@@ -894,6 +920,10 @@ class BuilderModule(tk.Toplevel):
         self.details_text.insert(tk.END, f"{gene.install_cost} EP\n", "value")
         self.details_text.insert(tk.END, f"Length: ", "header")
         self.details_text.insert(tk.END, f"{gene.length:,} bp\n", "value")
+
+        if gene.is_utr:
+            self.details_text.insert(tk.END, f"UTR: ", "header")
+            self.details_text.insert(tk.END, "Yes (fixed at 5' end)\n", "value")
 
         gene_type_name = self.game_state.database.get_gene_type_name(gene)
         if gene_type_name != "None":

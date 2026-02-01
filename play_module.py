@@ -16,9 +16,6 @@ from models import Effect, EffectType, CellLocation, EntityCategory
 # Antibody system constants
 ANTIBODY_MANIFEST_DELAY = 100  # Turns before antibodies manifest
 
-# Interferon decay per turn
-INTERFERON_DECAY_RATE = 0.5
-
 
 @dataclass
 class EntityInstance:
@@ -29,12 +26,24 @@ class EntityInstance:
     is_new: bool = False  # True if created this turn (no transitions apply)
 
 
+@dataclass(frozen=True)
+class PolyproteinInstance:
+    """Represents a polyprotein wrapper containing multiple protein types."""
+    orf_name: str  # e.g., "ORF-1"
+    protein_entity_ids: tuple  # Tuple of protein entity IDs contained (immutable for hashing)
+    self_cleavage_chance: float  # Percentage 0-100 per turn
+
+
 @dataclass
 class SimulationState:
     """State of the current simulation."""
     turn: int = 0
     entities: dict = field(default_factory=dict)  # (entity_id, location) -> count
     new_entities: dict = field(default_factory=dict)  # Same, but created this turn
+
+    # Polyproteins: PolyproteinInstance -> count (always in cytosol)
+    polyproteins: dict = field(default_factory=dict)
+    new_polyproteins: dict = field(default_factory=dict)
 
     interferon_level: float = 0.0
     antibody_stored: float = 0.0
@@ -381,18 +390,20 @@ class PlayModule(tk.Toplevel):
         self.sim_state.turn += 1
         self.sim_state.log.append(f"\n--- Turn {self.sim_state.turn} ---")
 
-        # Clear new entities from last turn (they're now regular entities)
+        # Clear new entities/polyproteins from last turn (they're now regular)
         self._merge_new_entities()
 
         # Process effects in order
         self._process_transitions()
         self._process_translations()
         self._process_location_changes()
+        self._process_polyprotein_cleavage()
         self._process_degradation()
+        self._process_polyprotein_degradation()
         self._process_interferon_decay()
         self._process_antibodies()
 
-        # Merge new entities created this turn
+        # Merge new entities/polyproteins created this turn
         self._merge_new_entities()
 
         # Record history
@@ -412,13 +423,21 @@ class PlayModule(tk.Toplevel):
             self._schedule_next_turn()
 
     def _merge_new_entities(self):
-        """Merge new entities into the main entity dict."""
+        """Merge new entities and polyproteins into the main dicts."""
         for key, count in self.sim_state.new_entities.items():
             if key in self.sim_state.entities:
                 self.sim_state.entities[key] += count
             else:
                 self.sim_state.entities[key] = count
         self.sim_state.new_entities.clear()
+
+        # Merge new polyproteins
+        for poly, count in self.sim_state.new_polyproteins.items():
+            if poly in self.sim_state.polyproteins:
+                self.sim_state.polyproteins[poly] += count
+            else:
+                self.sim_state.polyproteins[poly] = count
+        self.sim_state.new_polyproteins.clear()
 
     def _process_transitions(self):
         """Process all transition effects."""
@@ -651,8 +670,9 @@ class PlayModule(tk.Toplevel):
             f"  {effect.name}: {successes}x translation events")
 
     def _translate_orf(self, orf_info: dict):
-        """Translate an ORF, producing appropriate protein."""
+        """Translate an ORF, producing appropriate protein or polyprotein."""
         genes = orf_info['genes']
+        orf_name = orf_info['orf']
 
         # Get protein types from genes in this ORF
         protein_entity_ids = []
@@ -665,22 +685,39 @@ class PlayModule(tk.Toplevel):
             # No typed genes - produce nothing
             return
 
-        # Determine what to produce
         location = CellLocation.CYTOSOL.value
 
         if len(protein_entity_ids) == 1:
-            # Single type - produce that protein
+            # Single type - produce that protein directly
             entity_id = protein_entity_ids[0]
+            key = (entity_id, location)
+            if key in self.sim_state.new_entities:
+                self.sim_state.new_entities[key] += 1
+            else:
+                self.sim_state.new_entities[key] = 1
         else:
-            # Multiple types - produce Polyprotein
-            entity_id = self.game_state.database.POLYPROTEIN_ID
+            # Multiple types - create a polyprotein wrapper
+            # Calculate self-cleavage chance from Self-cleavage effects in this ORF's genes
+            cleavage_chance = 0.0
+            for gene_id in genes:
+                gene = self.game_state.get_gene(gene_id)
+                if gene:
+                    for effect_id in gene.effect_ids:
+                        effect = self.game_state.database.get_effect(effect_id)
+                        if effect and effect.effect_type == EffectType.SELF_CLEAVAGE.value:
+                            cleavage_chance += effect.self_cleavage_chance
 
-        # Add to new entities
-        key = (entity_id, location)
-        if key in self.sim_state.new_entities:
-            self.sim_state.new_entities[key] += 1
-        else:
-            self.sim_state.new_entities[key] = 1
+            # Create polyprotein instance (use tuple for hashability)
+            poly = PolyproteinInstance(
+                orf_name=orf_name,
+                protein_entity_ids=tuple(protein_entity_ids),
+                self_cleavage_chance=cleavage_chance
+            )
+
+            if poly in self.sim_state.new_polyproteins:
+                self.sim_state.new_polyproteins[poly] += 1
+            else:
+                self.sim_state.new_polyproteins[poly] = 1
 
         self.sim_state.locations_entered.add(location)
         self.sim_state.categories_produced.add(EntityCategory.PROTEIN.value)
@@ -821,8 +858,99 @@ class PlayModule(tk.Toplevel):
     def _process_interferon_decay(self):
         """Process interferon decay."""
         if self.sim_state.interferon_level > 0:
-            self.sim_state.interferon_level -= INTERFERON_DECAY_RATE
+            decay_rate = self.game_state.database.get_interferon_decay()
+            self.sim_state.interferon_level -= decay_rate
             self.sim_state.interferon_level = max(0, self.sim_state.interferon_level)
+
+    def _process_polyprotein_cleavage(self):
+        """Process polyprotein self-cleavage into individual proteins."""
+        total_cleaved = 0
+        location = CellLocation.CYTOSOL.value
+
+        for poly, count in list(self.sim_state.polyproteins.items()):
+            if count <= 0:
+                continue
+
+            if poly.self_cleavage_chance <= 0:
+                continue
+
+            # Roll for each polyprotein
+            cleaved = 0
+            for _ in range(count):
+                if random.random() * 100 < poly.self_cleavage_chance:
+                    cleaved += 1
+
+            if cleaved > 0:
+                # Remove cleaved polyproteins
+                self.sim_state.polyproteins[poly] -= cleaved
+                if self.sim_state.polyproteins[poly] <= 0:
+                    del self.sim_state.polyproteins[poly]
+
+                # Add individual proteins
+                for entity_id in poly.protein_entity_ids:
+                    key = (entity_id, location)
+                    if key in self.sim_state.new_entities:
+                        self.sim_state.new_entities[key] += cleaved
+                    else:
+                        self.sim_state.new_entities[key] = cleaved
+
+                total_cleaved += cleaved
+
+        if total_cleaved > 0:
+            self.sim_state.log.append(f"  Polyprotein cleavage: {total_cleaved} cleaved")
+
+    def _process_polyprotein_degradation(self):
+        """Process polyprotein degradation (same as proteins in cytosol)."""
+        location = CellLocation.CYTOSOL.value
+        category = EntityCategory.PROTEIN.value
+        interferon_level = self.sim_state.interferon_level
+
+        base_chance = self.game_state.database.get_degradation_chance(category, location)
+
+        # Apply interferon effect
+        if interferon_level > 0:
+            ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
+            actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100.0)
+            adjusted_chance = base_chance * (1 + actual_modifier)
+            adjusted_chance = min(100.0, adjusted_chance)
+        else:
+            adjusted_chance = base_chance
+
+        total_degraded = 0
+
+        for poly, count in list(self.sim_state.polyproteins.items()):
+            if count <= 0:
+                continue
+
+            degraded = 0
+            for _ in range(count):
+                if random.random() * 100 < adjusted_chance:
+                    degraded += 1
+
+            if degraded > 0:
+                self.sim_state.polyproteins[poly] -= degraded
+                if self.sim_state.polyproteins[poly] <= 0:
+                    del self.sim_state.polyproteins[poly]
+                total_degraded += degraded
+
+        # Also degrade new polyproteins
+        for poly, count in list(self.sim_state.new_polyproteins.items()):
+            if count <= 0:
+                continue
+
+            degraded = 0
+            for _ in range(count):
+                if random.random() * 100 < adjusted_chance:
+                    degraded += 1
+
+            if degraded > 0:
+                self.sim_state.new_polyproteins[poly] -= degraded
+                if self.sim_state.new_polyproteins[poly] <= 0:
+                    del self.sim_state.new_polyproteins[poly]
+                total_degraded += degraded
+
+        if total_degraded > 0:
+            self.sim_state.log.append(f"  Polyprotein degradation: {total_degraded}")
 
     def _process_antibodies(self):
         """Process antibody manifestation and elimination."""
@@ -896,6 +1024,12 @@ class PlayModule(tk.Toplevel):
                 elif cat == EntityCategory.PROTEIN.value:
                     counts['Protein'] += count
 
+        # Count polyproteins as proteins
+        for poly, count in self.sim_state.polyproteins.items():
+            counts['Protein'] += count
+        for poly, count in self.sim_state.new_polyproteins.items():
+            counts['Protein'] += count
+
         self.sim_state.history.append((self.sim_state.turn, counts.copy()))
 
         # Track max counts for milestones
@@ -925,6 +1059,10 @@ class PlayModule(tk.Toplevel):
             if entity and entity.category in [EntityCategory.VIRION.value,
                                                EntityCategory.VIRAL_COMPLEX.value]:
                 virions += count
+
+        # Also count polyproteins
+        total += sum(self.sim_state.polyproteins.values())
+        total += sum(self.sim_state.new_polyproteins.values())
 
         # Check extinction
         if total == 0:
@@ -988,8 +1126,11 @@ class PlayModule(tk.Toplevel):
         """Update all display elements."""
         self.turn_var.set(str(self.sim_state.turn))
 
-        # Count entities
-        total = sum(self.sim_state.entities.values()) + sum(self.sim_state.new_entities.values())
+        # Count entities (including polyproteins)
+        total = (sum(self.sim_state.entities.values()) +
+                 sum(self.sim_state.new_entities.values()) +
+                 sum(self.sim_state.polyproteins.values()) +
+                 sum(self.sim_state.new_polyproteins.values()))
         self.entity_count_var.set(str(total))
 
         # Count virions
@@ -1048,10 +1189,23 @@ class PlayModule(tk.Toplevel):
                 all_entities[key] = count
 
         for (entity_id, location), count in all_entities.items():
-            entities_by_location[location].append((entity_id, count))
+            entities_by_location[location].append((entity_id, count, False))  # False = not polyprotein
+
+        # Add polyproteins to cytosol
+        all_polyproteins = dict(self.sim_state.polyproteins)
+        for poly, count in self.sim_state.new_polyproteins.items():
+            if poly in all_polyproteins:
+                all_polyproteins[poly] += count
+            else:
+                all_polyproteins[poly] = count
+
+        for poly, count in all_polyproteins.items():
+            if count > 0:
+                entities_by_location[CellLocation.CYTOSOL.value].append((poly, count, True))  # True = polyprotein
 
         # Find max count for scaling
-        max_count = max([c for c in all_entities.values()] + [10])
+        all_counts = [c for c in all_entities.values()] + [c for c in all_polyproteins.values()] + [10]
+        max_count = max(all_counts)
 
         y = 10
         bar_height = 18
@@ -1066,23 +1220,34 @@ class PlayModule(tk.Toplevel):
             y += 20
 
             # Entity bars
-            for entity_id, count in sorted(entities_by_location[location],
-                                           key=lambda x: -x[1]):
-                entity = self.game_state.database.get_entity(entity_id)
-                name = entity.name if entity else f"Entity {entity_id}"
+            for item, count, is_poly in sorted(entities_by_location[location],
+                                               key=lambda x: -x[1]):
+                if is_poly:
+                    # Polyprotein - build display name
+                    poly = item
+                    protein_names = []
+                    for eid in poly.protein_entity_ids:
+                        entity = self.game_state.database.get_entity(eid)
+                        protein_names.append(entity.name if entity else f"ID:{eid}")
+                    name = f"Poly ({', '.join(protein_names)})"
+                    color = '#FF8C00'  # Dark orange for polyproteins
+                else:
+                    entity_id = item
+                    entity = self.game_state.database.get_entity(entity_id)
+                    name = entity.name if entity else f"Entity {entity_id}"
 
-                # Category color
-                color = '#888888'
-                if entity:
-                    cat = entity.category
-                    if cat == EntityCategory.VIRION.value or cat == EntityCategory.VIRAL_COMPLEX.value:
-                        color = 'purple'
-                    elif cat == EntityCategory.RNA.value:
-                        color = 'green'
-                    elif cat == EntityCategory.DNA.value:
-                        color = 'blue'
-                    elif cat == EntityCategory.PROTEIN.value:
-                        color = 'orange'
+                    # Category color
+                    color = '#888888'
+                    if entity:
+                        cat = entity.category
+                        if cat == EntityCategory.VIRION.value or cat == EntityCategory.VIRAL_COMPLEX.value:
+                            color = 'purple'
+                        elif cat == EntityCategory.RNA.value:
+                            color = 'green'
+                        elif cat == EntityCategory.DNA.value:
+                            color = 'blue'
+                        elif cat == EntityCategory.PROTEIN.value:
+                            color = 'orange'
 
                 # Draw bar
                 bar_width = int((count / max_count) * (width - 200))
@@ -1092,9 +1257,10 @@ class PlayModule(tk.Toplevel):
                     120, y, 120 + bar_width, y + bar_height,
                     fill=color, outline=color)
 
-                # Entity name
+                # Entity name (truncate if needed)
+                display_name = name[:20] if len(name) > 20 else name
                 self.entity_canvas.create_text(
-                    10, y + bar_height // 2, text=name[:15], anchor='w',
+                    10, y + bar_height // 2, text=display_name, anchor='w',
                     font=('TkDefaultFont', 9))
 
                 # Count

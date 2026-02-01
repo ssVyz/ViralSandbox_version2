@@ -29,6 +29,7 @@ class EffectType(Enum):
     MODIFY_TRANSITION = "Modify transition"
     CHANGE_LOCATION = "Change location"
     TRANSLATION = "Translation"
+    SELF_CLEAVAGE = "Self-cleavage"
 
 
 class OrfTargeting(Enum):
@@ -128,6 +129,9 @@ class Effect:
     translation_chance: float = 100.0  # Percentage 0-100
     orf_targeting: str = "Random ORF"  # OrfTargeting value
 
+    # For Self-cleavage effects
+    self_cleavage_chance: float = 0.0  # Percentage 0-100
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -153,7 +157,8 @@ class Effect:
             "location_change_chance": self.location_change_chance,
             "templates": self.templates,
             "translation_chance": self.translation_chance,
-            "orf_targeting": self.orf_targeting
+            "orf_targeting": self.orf_targeting,
+            "self_cleavage_chance": self.self_cleavage_chance
         }
 
     @classmethod
@@ -182,7 +187,8 @@ class Effect:
             location_change_chance=data.get("location_change_chance", 100.0),
             templates=data.get("templates", []),
             translation_chance=data.get("translation_chance", 100.0),
-            orf_targeting=data.get("orf_targeting", "Random ORF")
+            orf_targeting=data.get("orf_targeting", "Random ORF"),
+            self_cleavage_chance=data.get("self_cleavage_chance", 0.0)
         )
 
 
@@ -197,6 +203,7 @@ class Gene:
     gene_type_entity_id: Optional[int] = None  # Entity ID of protein type this gene enables, None for "None"
     effect_ids: list = field(default_factory=list)  # List of effect IDs
     description: str = ""
+    is_utr: bool = False  # If True, this gene is a UTR (fixed at 5' end, only one allowed)
 
     def to_dict(self) -> dict:
         return {
@@ -207,7 +214,8 @@ class Gene:
             "length": self.length,
             "gene_type_entity_id": self.gene_type_entity_id,
             "effect_ids": self.effect_ids,
-            "description": self.description
+            "description": self.description,
+            "is_utr": self.is_utr
         }
 
     @classmethod
@@ -229,7 +237,8 @@ class Gene:
             length=data["length"],
             gene_type_entity_id=gene_type_entity_id,
             effect_ids=data.get("effect_ids", []),
-            description=data.get("description", "")
+            description=data.get("description", ""),
+            is_utr=data.get("is_utr", False)
         )
 
 

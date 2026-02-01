@@ -523,6 +523,19 @@ class DatabaseEditor(tk.Toplevel):
         ttk.Button(template_btn_frame, text="Add Template", command=self._add_template).pack(side=tk.LEFT, padx=2)
         ttk.Button(template_btn_frame, text="Remove Template", command=self._remove_template).pack(side=tk.LEFT, padx=2)
 
+        # Self-cleavage fields
+        row += 1
+        self.cleavage_frame = ttk.LabelFrame(right_frame, text="Self-Cleavage Settings")
+        self.cleavage_frame.grid(row=row, column=0, columnspan=2, sticky='ew', pady=10)
+
+        ttk.Label(self.cleavage_frame, text="Self-cleavage Chance (%):").grid(row=0, column=0, sticky='w', pady=2, padx=5)
+        self.cleavage_chance_var = tk.StringVar(value="0.0")
+        ttk.Entry(self.cleavage_frame, textvariable=self.cleavage_chance_var, width=10).grid(
+            row=0, column=1, sticky='w', pady=2)
+
+        ttk.Label(self.cleavage_frame, text="(Chance per turn for polyprotein to cleave into individual proteins)",
+                  font=('TkDefaultFont', 8, 'italic')).grid(row=1, column=0, columnspan=2, sticky='w', pady=2, padx=5)
+
         # Save buttons
         row += 1
         btn_row = ttk.Frame(right_frame)
@@ -546,6 +559,7 @@ class DatabaseEditor(tk.Toplevel):
         self.modify_frame.grid_remove()
         self.location_frame.grid_remove()
         self.translation_frame.grid_remove()
+        self.cleavage_frame.grid_remove()
 
         if effect_type == EffectType.TRANSITION.value:
             self.transition_frame.grid()
@@ -555,6 +569,8 @@ class DatabaseEditor(tk.Toplevel):
             self.location_frame.grid()
         elif effect_type == EffectType.TRANSLATION.value:
             self.translation_frame.grid()
+        elif effect_type == EffectType.SELF_CLEAVAGE.value:
+            self.cleavage_frame.grid()
 
     def _filter_effects(self):
         """Filter the effect list based on search."""
@@ -640,6 +656,9 @@ class DatabaseEditor(tk.Toplevel):
             self.templates_listbox.insert(tk.END,
                 f"{name} @ {tmpl.get('location', 'Cytosol')}")
 
+        # Self-cleavage fields
+        self.cleavage_chance_var.set(str(effect.self_cleavage_chance))
+
         self._on_effect_type_change()
 
     def _new_effect(self):
@@ -678,6 +697,8 @@ class DatabaseEditor(tk.Toplevel):
         self.orf_targeting_var.set("Random ORF")
         self.templates_listbox.delete(0, tk.END)
         self._current_templates = []
+        # Self-cleavage fields
+        self.cleavage_chance_var.set("0.0")
         self._on_effect_type_change()
         self.current_selection = None
 
@@ -808,7 +829,8 @@ class DatabaseEditor(tk.Toplevel):
             location_change_chance=float(self.location_chance_var.get() or 100),
             templates=templates,
             translation_chance=float(self.translation_chance_var.get() or 100),
-            orf_targeting=self.orf_targeting_var.get() or "Random ORF"
+            orf_targeting=self.orf_targeting_var.get() or "Random ORF",
+            self_cleavage_chance=float(self.cleavage_chance_var.get() or 0)
         )
 
         if effect_id in self.database.effects:
@@ -904,6 +926,11 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_type_combo.grid(row=row, column=1, sticky='w', pady=2)
 
         row += 1
+        self.gene_is_utr_var = tk.BooleanVar()
+        ttk.Checkbutton(right_frame, text="Is UTR (fixed at 5' end, only one allowed per virus)",
+                        variable=self.gene_is_utr_var).grid(row=row, column=0, columnspan=2, sticky='w', pady=2)
+
+        row += 1
         ttk.Label(right_frame, text="Description:").grid(row=row, column=0, sticky='nw', pady=2)
         self.gene_desc_text = tk.Text(right_frame, width=40, height=3)
         self.gene_desc_text.grid(row=row, column=1, sticky='w', pady=2)
@@ -984,6 +1011,8 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_desc_text.insert('1.0', gene.description)
 
+        self.gene_is_utr_var.set(gene.is_utr)
+
         self.gene_effects_listbox.delete(0, tk.END)
         self._current_gene_effects = list(gene.effect_ids)
         for eid in gene.effect_ids:
@@ -1005,6 +1034,7 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_cost_var.set("")
         self.gene_length_var.set("")
         self.gene_type_var.set("None")
+        self.gene_is_utr_var.set(False)
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_effects_listbox.delete(0, tk.END)
         self._current_gene_effects = []
@@ -1073,7 +1103,8 @@ class DatabaseEditor(tk.Toplevel):
             length=length,
             gene_type_entity_id=gene_type_entity_id,
             effect_ids=list(self._current_gene_effects),
-            description=self.gene_desc_text.get('1.0', tk.END).strip()
+            description=self.gene_desc_text.get('1.0', tk.END).strip(),
+            is_utr=self.gene_is_utr_var.get()
         )
 
         if gene_id in self.database.genes:
@@ -1428,6 +1459,22 @@ class DatabaseEditor(tk.Toplevel):
 
             self.interferon_entries[category] = var
 
+        # ===== INTERFERON DECAY SECTION =====
+        ttk.Separator(main_frame, orient='horizontal').pack(fill=tk.X, pady=15)
+
+        ttk.Label(main_frame, text="Interferon Decay",
+                  font=('TkDefaultFont', 12, 'bold')).pack(anchor='w', pady=(0, 5))
+
+        ttk.Label(main_frame, text="The amount of interferon that decays each turn (absolute value).",
+                  wraplength=800).pack(anchor='w', pady=(0, 10))
+
+        decay_frame = ttk.Frame(main_frame)
+        decay_frame.pack(fill=tk.X)
+
+        ttk.Label(decay_frame, text="Decay per turn:").pack(side=tk.LEFT, padx=5)
+        self.interferon_decay_var = tk.StringVar()
+        ttk.Entry(decay_frame, textvariable=self.interferon_decay_var, width=10).pack(side=tk.LEFT, padx=5)
+
         # ===== BUTTONS =====
         ttk.Separator(main_frame, orient='horizontal').pack(fill=tk.X, pady=15)
 
@@ -1462,10 +1509,16 @@ class DatabaseEditor(tk.Toplevel):
             value = self.database.get_interferon_modifier(category)
             var.set(f"{value:.1f}")
 
+    def _load_interferon_decay(self):
+        """Load interferon decay value from the database."""
+        value = self.database.get_interferon_decay()
+        self.interferon_decay_var.set(f"{value:.2f}")
+
     def _load_all_settings(self):
         """Load all settings from the database."""
         self._load_degradation_values()
         self._load_interferon_values()
+        self._load_interferon_decay()
 
     def _apply_all_settings(self):
         """Apply all settings changes to the database."""
@@ -1489,11 +1542,22 @@ class DatabaseEditor(tk.Toplevel):
             try:
                 value = float(value_str)
                 if value < 0:
-                    errors.append(f"Interferon {category}: Value must be >= 0")
+                    errors.append(f"Interferon modifier {category}: Value must be >= 0")
                 else:
                     self.database.set_interferon_modifier(category, value)
             except ValueError:
-                errors.append(f"Interferon {category}: Invalid number '{value_str}'")
+                errors.append(f"Interferon modifier {category}: Invalid number '{value_str}'")
+
+        # Validate and apply interferon decay
+        decay_str = self.interferon_decay_var.get().strip()
+        try:
+            decay_value = float(decay_str)
+            if decay_value < 0:
+                errors.append("Interferon decay: Value must be >= 0")
+            else:
+                self.database.set_interferon_decay(decay_value)
+        except ValueError:
+            errors.append(f"Interferon decay: Invalid number '{decay_str}'")
 
         if errors:
             messagebox.showerror("Validation Errors",
@@ -1508,6 +1572,7 @@ class DatabaseEditor(tk.Toplevel):
                                "Reset all degradation and interferon settings to default values?"):
             self.database.reset_degradation_to_defaults()
             self.database.reset_interferon_modifiers_to_defaults()
+            self.database.reset_interferon_decay_to_default()
             self._load_all_settings()
             self._update_status()
             messagebox.showinfo("Reset", "All settings reset to defaults.")

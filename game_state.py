@@ -157,6 +157,24 @@ class GameState:
         """Get an effect from the database."""
         return self.database.get_effect(effect_id)
 
+    def has_utr_installed(self) -> bool:
+        """Check if a UTR gene is already installed."""
+        for item in self.installed_genes:
+            if not self.is_orf(item):
+                gene = self.get_gene(item)
+                if gene and gene.is_utr:
+                    return True
+        return False
+
+    def get_installed_utr_gene_id(self) -> int | None:
+        """Get the ID of the installed UTR gene, or None if none installed."""
+        for item in self.installed_genes:
+            if not self.is_orf(item):
+                gene = self.get_gene(item)
+                if gene and gene.is_utr:
+                    return item
+        return None
+
     def can_install_gene(self, gene_id: int) -> tuple[bool, str]:
         """Check if a gene can be installed. Returns (can_install, reason)."""
         gene = self.get_gene(gene_id)
@@ -171,6 +189,10 @@ class GameState:
 
         if gene.install_cost > self.evolution_points:
             return False, f"Not enough EP (need {gene.install_cost}, have {self.evolution_points})"
+
+        # Check UTR constraint: only one UTR gene allowed
+        if gene.is_utr and self.has_utr_installed():
+            return False, "Only one UTR gene can be installed at a time"
 
         return True, "OK"
 
@@ -187,7 +209,12 @@ class GameState:
 
         # Move gene from available to installed
         self.available_genes.remove(gene_id)
-        self.installed_genes.append(gene_id)
+
+        # UTR genes always go at the beginning (5' end)
+        if gene.is_utr:
+            self.installed_genes.insert(0, gene_id)
+        else:
+            self.installed_genes.append(gene_id)
 
         return True, f"Installed {gene.name} for {gene.install_cost} EP"
 
@@ -209,9 +236,20 @@ class GameState:
         if gene_id not in self.installed_genes:
             return False
 
+        gene = self.get_gene(gene_id)
+        if gene and gene.is_utr:
+            return False  # UTR genes cannot be moved
+
         idx = self.installed_genes.index(gene_id)
         if idx == 0:
             return False  # Already at top
+
+        # Don't allow moving past UTR gene at position 0
+        prev_item = self.installed_genes[idx - 1]
+        if not self.is_orf(prev_item):
+            prev_gene = self.get_gene(prev_item)
+            if prev_gene and prev_gene.is_utr:
+                return False  # Cannot move past UTR
 
         # Swap with previous gene
         self.installed_genes[idx], self.installed_genes[idx - 1] = \
@@ -222,6 +260,10 @@ class GameState:
         """Move an installed gene down in the order. Returns True if moved."""
         if gene_id not in self.installed_genes:
             return False
+
+        gene = self.get_gene(gene_id)
+        if gene and gene.is_utr:
+            return False  # UTR genes cannot be moved
 
         idx = self.installed_genes.index(gene_id)
         if idx >= len(self.installed_genes) - 1:

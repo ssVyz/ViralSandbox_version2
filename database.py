@@ -62,6 +62,9 @@ DEFAULT_INTERFERON_MODIFIERS = {
     EntityCategory.PROTEIN.value: 50.0,
 }
 
+# Default interferon decay per turn (absolute value)
+DEFAULT_INTERFERON_DECAY = 0.5
+
 
 class GameDatabase:
     """Manages the game database containing entities, effects, genes, and milestones."""
@@ -73,11 +76,10 @@ class GameDatabase:
     NEGATIVE_SENSE_RNA_ID = 4
     SSDNA_ID = 5
     DSDNA_ID = 6
-    POLYPROTEIN_ID = 7
     PROTECTED_ENTITY_IDS = {
         ENVELOPED_VIRION_ID, UNENVELOPED_VIRION_ID,
         POSITIVE_SENSE_RNA_ID, NEGATIVE_SENSE_RNA_ID,
-        SSDNA_ID, DSDNA_ID, POLYPROTEIN_ID
+        SSDNA_ID, DSDNA_ID
     }
 
     def __init__(self):
@@ -87,11 +89,12 @@ class GameDatabase:
         self.milestones: dict[int, Milestone] = {}
         self.degradation_chances: dict[str, dict[str, float]] = {}
         self.interferon_modifiers: dict[str, float] = {}
+        self.interferon_decay: float = DEFAULT_INTERFERON_DECAY
         self.filepath: Optional[Path] = None
         self.modified: bool = False
 
         # ID counters for new objects
-        self._next_entity_id = 8  # Start after predefined entities (IDs 1-7)
+        self._next_entity_id = 7  # Start after predefined entities (IDs 1-6)
         self._next_effect_id = 1
         self._next_gene_id = 1
         self._next_milestone_id = 1
@@ -150,20 +153,12 @@ class GameDatabase:
             entity_type="None",
             description="Double-stranded DNA genome."
         )
-        polyprotein = ViralEntity(
-            id=self.POLYPROTEIN_ID,
-            name="Polyprotein",
-            category="Protein",
-            entity_type="Polyprotein",  # Proteins have their own name as type
-            description="A large precursor protein that is cleaved into functional viral proteins."
-        )
         self.entities[self.ENVELOPED_VIRION_ID] = enveloped
         self.entities[self.UNENVELOPED_VIRION_ID] = unenveloped
         self.entities[self.POSITIVE_SENSE_RNA_ID] = positive_rna
         self.entities[self.NEGATIVE_SENSE_RNA_ID] = negative_rna
         self.entities[self.SSDNA_ID] = ssdna
         self.entities[self.DSDNA_ID] = dsdna
-        self.entities[self.POLYPROTEIN_ID] = polyprotein
 
     def new_database(self):
         """Create a new database with predefined entities."""
@@ -173,7 +168,7 @@ class GameDatabase:
         self.milestones.clear()
         self.filepath = None
         self.modified = False
-        self._next_entity_id = 8  # Start after predefined entities (IDs 1-7)
+        self._next_entity_id = 7  # Start after predefined entities (IDs 1-6)
         self._next_effect_id = 1
         self._next_gene_id = 1
         self._next_milestone_id = 1
@@ -181,9 +176,10 @@ class GameDatabase:
         # Always create predefined entities
         self._create_predefined_entities()
 
-        # Initialize default degradation chances and interferon modifiers
+        # Initialize default degradation chances, interferon modifiers, and decay
         self._init_default_degradation()
         self._init_default_interferon_modifiers()
+        self.interferon_decay = DEFAULT_INTERFERON_DECAY
 
     def load(self, filepath: str) -> bool:
         """Load a database from a JSON file."""
@@ -237,6 +233,11 @@ class GameDatabase:
                 self.interferon_modifiers = data["interferon_modifiers"]
             # else: defaults were already set by new_database()
 
+            # Load interferon decay (or use default if not present)
+            if "interferon_decay" in data:
+                self.interferon_decay = data["interferon_decay"]
+            # else: default was already set by new_database()
+
             self.modified = False
             return True
 
@@ -260,7 +261,8 @@ class GameDatabase:
                 "genes": [g.to_dict() for g in self.genes.values()],
                 "milestones": [m.to_dict() for m in self.milestones.values()],
                 "degradation_chances": self.degradation_chances,
-                "interferon_modifiers": self.interferon_modifiers
+                "interferon_modifiers": self.interferon_modifiers,
+                "interferon_decay": self.interferon_decay
             }
 
             with open(path, 'w', encoding='utf-8') as f:
@@ -505,4 +507,19 @@ class GameDatabase:
     def reset_interferon_modifiers_to_defaults(self):
         """Reset all interferon modifiers to default values."""
         self._init_default_interferon_modifiers()
+        self.modified = True
+
+    # Interferon decay methods
+    def get_interferon_decay(self) -> float:
+        """Get the interferon decay rate per turn."""
+        return self.interferon_decay
+
+    def set_interferon_decay(self, decay: float):
+        """Set the interferon decay rate per turn."""
+        self.interferon_decay = decay
+        self.modified = True
+
+    def reset_interferon_decay_to_default(self):
+        """Reset interferon decay to default value."""
+        self.interferon_decay = DEFAULT_INTERFERON_DECAY
         self.modified = True
