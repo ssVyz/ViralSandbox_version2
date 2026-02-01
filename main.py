@@ -238,6 +238,10 @@ class MainMenu(tk.Tk):
 
     def _on_play_return(self, victory: bool = False):
         """Handle return from play module."""
+        # Hide the play module first to avoid window conflicts
+        if self.play_module:
+            self.play_module.withdraw()
+
         self.play_module = None
 
         if victory:
@@ -263,12 +267,16 @@ class MainMenu(tk.Tk):
             self._on_game_quit()
             return
 
+        # Show the builder module first (so dialog has a visible parent context)
+        if self.builder_module:
+            self.builder_module.deiconify()
+            self.builder_module.update()  # Process pending events
+
         # Offer new genes for next round
         self._offer_new_genes()
 
-        # Show the builder module again
+        # Finalize builder display
         if self.builder_module:
-            self.builder_module.deiconify()
             self.builder_module._refresh_all()
             self.builder_module.lift()
             self.builder_module.focus_force()
@@ -290,9 +298,10 @@ class MainMenu(tk.Tk):
         offer_count = min(self.game_state.genes_offered_per_round, len(available_ids))
         offered = random.sample(available_ids, offer_count)
 
-        # Show selection dialog
-        dialog = GeneOfferDialog(self, self.game_state, offered)
-        self.wait_window(dialog)
+        # Show selection dialog (use builder_module as parent if available, otherwise self)
+        parent = self.builder_module if self.builder_module else self
+        dialog = GeneOfferDialog(parent, self.game_state, offered)
+        parent.wait_window(dialog)
 
         if dialog.selected_gene:
             self.game_state.available_genes.append(dialog.selected_gene)

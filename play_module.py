@@ -1411,8 +1411,7 @@ class PlayModule(tk.Toplevel):
         ttk.Button(btn_frame, text="View Log",
                    command=self._show_log).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Return to Builder",
-                   command=lambda: [dialog.destroy(),
-                                   self._end_round()]).pack(side=tk.LEFT, padx=5)
+                   command=lambda: [dialog.destroy(), self._end_round()]).pack(side=tk.LEFT, padx=5)
 
     def _end_round(self, early_exit: bool = False):
         """End the current round and return to builder."""
@@ -1429,13 +1428,9 @@ class PlayModule(tk.Toplevel):
 
     def _return_to_builder(self):
         """Return to the builder module."""
-        # Store callback and victory state before destroying
-        callback = self.on_return_callback
-        victory = self.sim_state.is_victory
+        # Call callback first (while this window still exists)
+        if self.on_return_callback:
+            self.on_return_callback(victory=self.sim_state.is_victory)
 
-        # Destroy this window first to avoid window management issues
+        # Then destroy this window
         self.destroy()
-
-        # Then call the callback
-        if callback:
-            callback(victory=victory)
