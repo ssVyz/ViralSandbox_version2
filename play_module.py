@@ -455,8 +455,12 @@ class PlayModule(tk.Toplevel):
             self._apply_transition(effect, modifiers)
 
     def _get_transition_modifiers(self) -> dict:
-        """Get all transition modifiers keyed by effect ID and category."""
-        modifiers = defaultdict(lambda: {'chance': 0, 'interferon': 0, 'antibody': 0})
+        """Get all transition modifiers keyed by effect ID and category.
+
+        Modifiers are stored as percentage multipliers (100 = no change, 150 = 1.5x).
+        Multiple modifiers targeting the same effect/category are multiplied together.
+        """
+        modifiers = defaultdict(lambda: {'chance': 100, 'interferon': 100, 'antibody': 100})
 
         all_effects = self.effects + self.global_effects
         modify_effects = [e for e in all_effects
@@ -470,9 +474,10 @@ class PlayModule(tk.Toplevel):
             else:
                 continue
 
-            modifiers[key]['chance'] += effect.chance_modifier
-            modifiers[key]['interferon'] += effect.interferon_modifier
-            modifiers[key]['antibody'] += effect.antibody_modifier
+            # Multiply modifiers together (150 * 150 / 100 = 225, meaning 2.25x total)
+            modifiers[key]['chance'] = modifiers[key]['chance'] * effect.chance_modifier / 100
+            modifiers[key]['interferon'] = modifiers[key]['interferon'] * effect.interferon_modifier / 100
+            modifiers[key]['antibody'] = modifiers[key]['antibody'] * effect.antibody_modifier / 100
 
         return modifiers
 
@@ -501,12 +506,13 @@ class PlayModule(tk.Toplevel):
         if not inputs_available or min_possible == 0:
             return
 
-        # Calculate modified chance
+        # Calculate modified chance using multiplicative modifiers
         base_chance = effect.chance
-        modifier = modifiers.get(('id', effect.id), {'chance': 0})
-        cat_modifier = modifiers.get(('category', effect.category), {'chance': 0})
+        modifier = modifiers.get(('id', effect.id), {'chance': 100, 'interferon': 100, 'antibody': 100})
+        cat_modifier = modifiers.get(('category', effect.category), {'chance': 100, 'interferon': 100, 'antibody': 100})
 
-        total_chance = base_chance + modifier['chance'] + cat_modifier['chance']
+        # Apply modifiers multiplicatively (modifier values are percentages: 100 = no change, 150 = 1.5x)
+        total_chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
         total_chance = max(0, min(100, total_chance))
 
         if total_chance <= 0:
@@ -558,16 +564,16 @@ class PlayModule(tk.Toplevel):
                 if entity:
                     self.sim_state.categories_produced.add(entity.category)
 
-        # Apply interferon production
+        # Apply interferon production with multiplicative modifiers
         ifn_prod = effect.interferon_production
-        ifn_prod += modifier.get('interferon', 0) + cat_modifier.get('interferon', 0)
+        ifn_prod = ifn_prod * (modifier.get('interferon', 100) / 100) * (cat_modifier.get('interferon', 100) / 100)
         if ifn_prod > 0:
             self.sim_state.interferon_level += ifn_prod * successes
             self.sim_state.interferon_level = min(100, self.sim_state.interferon_level)
 
-        # Apply antibody response
+        # Apply antibody response with multiplicative modifiers
         ab_resp = effect.antibody_response
-        ab_resp += modifier.get('antibody', 0) + cat_modifier.get('antibody', 0)
+        ab_resp = ab_resp * (modifier.get('antibody', 100) / 100) * (cat_modifier.get('antibody', 100) / 100)
         if ab_resp > 0:
             self.sim_state.antibody_stored += ab_resp * successes
             # Queue antibody manifestation

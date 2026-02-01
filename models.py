@@ -123,9 +123,9 @@ class Effect:
     # For Modify transition effects
     target_effect_id: Optional[int] = None
     target_category: str = ""  # Can target by category string
-    chance_modifier: float = 0.0
-    interferon_modifier: float = 0.0
-    antibody_modifier: float = 0.0
+    chance_modifier: float = 100.0  # Percentage multiplier (100 = no change, 150 = 1.5x)
+    interferon_modifier: float = 100.0  # Percentage multiplier (100 = no change, 150 = 1.5x)
+    antibody_modifier: float = 100.0  # Percentage multiplier (100 = no change, 150 = 1.5x)
 
     # For Change location effects
     source_location: str = ""
@@ -187,9 +187,9 @@ class Effect:
             requires_genome_type=data.get("requires_genome_type", ""),
             target_effect_id=data.get("target_effect_id"),
             target_category=data.get("target_category", ""),
-            chance_modifier=data.get("chance_modifier", 0.0),
-            interferon_modifier=data.get("interferon_modifier", 0.0),
-            antibody_modifier=data.get("antibody_modifier", 0.0),
+            chance_modifier=data.get("chance_modifier", 100.0),
+            interferon_modifier=data.get("interferon_modifier", 100.0),
+            antibody_modifier=data.get("antibody_modifier", 100.0),
             source_location=data.get("source_location", ""),
             target_location=data.get("target_location", ""),
             affected_entity_id=data.get("affected_entity_id"),

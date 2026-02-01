@@ -494,17 +494,17 @@ class DatabaseEditor(tk.Toplevel):
             row=1, column=1, sticky='w', pady=2)
 
         ttk.Label(self.modify_frame, text="Chance Modifier (%):").grid(row=2, column=0, sticky='w', pady=2, padx=5)
-        self.modify_chance_var = tk.StringVar(value="0.0")
+        self.modify_chance_var = tk.StringVar(value="100.0")
         ttk.Entry(self.modify_frame, textvariable=self.modify_chance_var, width=10).grid(
             row=2, column=1, sticky='w', pady=2)
 
-        ttk.Label(self.modify_frame, text="Interferon Modifier:").grid(row=3, column=0, sticky='w', pady=2, padx=5)
-        self.modify_interferon_var = tk.StringVar(value="0.0")
+        ttk.Label(self.modify_frame, text="Interferon Modifier (%):").grid(row=3, column=0, sticky='w', pady=2, padx=5)
+        self.modify_interferon_var = tk.StringVar(value="100.0")
         ttk.Entry(self.modify_frame, textvariable=self.modify_interferon_var, width=10).grid(
             row=3, column=1, sticky='w', pady=2)
 
-        ttk.Label(self.modify_frame, text="Antibody Modifier:").grid(row=4, column=0, sticky='w', pady=2, padx=5)
-        self.modify_antibody_var = tk.StringVar(value="0.0")
+        ttk.Label(self.modify_frame, text="Antibody Modifier (%):").grid(row=4, column=0, sticky='w', pady=2, padx=5)
+        self.modify_antibody_var = tk.StringVar(value="100.0")
         ttk.Entry(self.modify_frame, textvariable=self.modify_antibody_var, width=10).grid(
             row=4, column=1, sticky='w', pady=2)
 
@@ -735,9 +735,9 @@ class DatabaseEditor(tk.Toplevel):
         self._current_outputs = []
         self.modify_target_id_var.set("")
         self.modify_target_cat_var.set("")
-        self.modify_chance_var.set("0.0")
-        self.modify_interferon_var.set("0.0")
-        self.modify_antibody_var.set("0.0")
+        self.modify_chance_var.set("100.0")
+        self.modify_interferon_var.set("100.0")
+        self.modify_antibody_var.set("100.0")
         self.location_entity_var.set("")
         self.location_source_var.set("")
         self.location_target_var.set("")
@@ -870,9 +870,9 @@ class DatabaseEditor(tk.Toplevel):
             requires_genome_type=self.effect_genome_type_var.get(),
             target_effect_id=int(self.modify_target_id_var.get()) if self.modify_target_id_var.get() else None,
             target_category=self.modify_target_cat_var.get(),
-            chance_modifier=float(self.modify_chance_var.get() or 0),
-            interferon_modifier=float(self.modify_interferon_var.get() or 0),
-            antibody_modifier=float(self.modify_antibody_var.get() or 0),
+            chance_modifier=float(self.modify_chance_var.get() or 100),
+            interferon_modifier=float(self.modify_interferon_var.get() or 100),
+            antibody_modifier=float(self.modify_antibody_var.get() or 100),
             source_location=self.location_source_var.get(),
             target_location=self.location_target_var.get(),
             affected_entity_id=int(self.location_entity_var.get()) if self.location_entity_var.get() else None,

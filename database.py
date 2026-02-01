@@ -3,6 +3,7 @@ Database handler for Viral Sandbox.
 Manages loading, saving, and manipulating game databases.
 """
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from models import ViralEntity, Effect, Gene, Milestone, EntityCategory, CellLocation
@@ -93,6 +94,10 @@ class GameDatabase:
         self.filepath: Optional[Path] = None
         self.modified: bool = False
 
+        # Version tracking
+        self.db_version: int = 0  # Increments by 1 each time the database is saved
+        self.last_modified: str = ""  # ISO format timestamp of last save
+
         # ID counters for new objects
         self._next_entity_id = 7  # Start after predefined entities (IDs 1-6)
         self._next_effect_id = 1
@@ -173,6 +178,10 @@ class GameDatabase:
         self._next_gene_id = 1
         self._next_milestone_id = 1
 
+        # Reset version tracking
+        self.db_version = 0
+        self.last_modified = ""
+
         # Always create predefined entities
         self._create_predefined_entities()
 
@@ -238,6 +247,10 @@ class GameDatabase:
                 self.interferon_decay = data["interferon_decay"]
             # else: default was already set by new_database()
 
+            # Load version tracking
+            self.db_version = data.get("db_version", 0)
+            self.last_modified = data.get("last_modified", "")
+
             self.modified = False
             return True
 
@@ -255,7 +268,13 @@ class GameDatabase:
             else:
                 return False
 
+            # Increment version and update timestamp
+            self.db_version += 1
+            self.last_modified = datetime.now().isoformat(timespec='seconds')
+
             data = {
+                "db_version": self.db_version,
+                "last_modified": self.last_modified,
                 "entities": [e.to_dict() for e in self.entities.values()],
                 "effects": [e.to_dict() for e in self.effects.values()],
                 "genes": [g.to_dict() for g in self.genes.values()],
