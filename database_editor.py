@@ -9,7 +9,7 @@ from database import GameDatabase
 from models import (
     ViralEntity, Effect, Gene, Milestone,
     EntityCategory, CellLocation,
-    EffectType, MilestoneType
+    EffectType, MilestoneType, OrfTargeting
 )
 
 
@@ -283,6 +283,11 @@ class DatabaseEditor(tk.Toplevel):
 
         self._filter_entities()
         self._update_status()
+
+        # Update gene type dropdown if a protein was saved
+        if category == EntityCategory.PROTEIN.value:
+            self._update_gene_type_values()
+
         messagebox.showinfo("Success", f"Entity '{name}' saved.")
 
     def _delete_entity(self):
@@ -304,10 +309,15 @@ class DatabaseEditor(tk.Toplevel):
         entity = self.database.get_entity(entity_id)
         if entity and messagebox.askyesno("Confirm Delete",
                                           f"Delete entity '{entity.name}'?"):
+            was_protein = entity.category == EntityCategory.PROTEIN.value
             self.database.delete_entity(entity_id)
             self._clear_entity_form()
             self._filter_entities()
             self._update_status()
+
+            # Update gene type dropdown if a protein was deleted
+            if was_protein:
+                self._update_gene_type_values()
 
     # ==================== EFFECTS TAB ====================
 
@@ -485,6 +495,32 @@ class DatabaseEditor(tk.Toplevel):
         ttk.Entry(self.location_frame, textvariable=self.location_chance_var, width=10).grid(
             row=3, column=1, sticky='w', pady=2)
 
+        # Translation fields
+        row += 1
+        self.translation_frame = ttk.LabelFrame(right_frame, text="Translation Settings")
+        self.translation_frame.grid(row=row, column=0, columnspan=2, sticky='ew', pady=10)
+
+        ttk.Label(self.translation_frame, text="Chance (%):").grid(row=0, column=0, sticky='w', pady=2, padx=5)
+        self.translation_chance_var = tk.StringVar(value="100.0")
+        ttk.Entry(self.translation_frame, textvariable=self.translation_chance_var, width=10).grid(
+            row=0, column=1, sticky='w', pady=2)
+
+        ttk.Label(self.translation_frame, text="ORF Targeting:").grid(row=1, column=0, sticky='w', pady=2, padx=5)
+        self.orf_targeting_var = tk.StringVar(value="Random ORF")
+        ttk.Combobox(self.translation_frame, textvariable=self.orf_targeting_var,
+                     values=[t.value for t in OrfTargeting], state='readonly', width=17).grid(
+            row=1, column=1, sticky='w', pady=2)
+
+        # Templates (RNA inputs that are never consumed)
+        ttk.Label(self.translation_frame, text="Templates (RNA):").grid(row=2, column=0, sticky='nw', pady=2, padx=5)
+        self.templates_listbox = tk.Listbox(self.translation_frame, height=4, width=50)
+        self.templates_listbox.grid(row=2, column=1, columnspan=2, sticky='w', pady=2)
+
+        template_btn_frame = ttk.Frame(self.translation_frame)
+        template_btn_frame.grid(row=3, column=1, sticky='w')
+        ttk.Button(template_btn_frame, text="Add Template", command=self._add_template).pack(side=tk.LEFT, padx=2)
+        ttk.Button(template_btn_frame, text="Remove Template", command=self._remove_template).pack(side=tk.LEFT, padx=2)
+
         # Save buttons
         row += 1
         btn_row = ttk.Frame(right_frame)
@@ -507,6 +543,7 @@ class DatabaseEditor(tk.Toplevel):
         self.transition_frame.grid_remove()
         self.modify_frame.grid_remove()
         self.location_frame.grid_remove()
+        self.translation_frame.grid_remove()
 
         if effect_type == EffectType.TRANSITION.value:
             self.transition_frame.grid()
@@ -514,6 +551,8 @@ class DatabaseEditor(tk.Toplevel):
             self.modify_frame.grid()
         elif effect_type == EffectType.CHANGE_LOCATION.value:
             self.location_frame.grid()
+        elif effect_type == EffectType.TRANSLATION.value:
+            self.translation_frame.grid()
 
     def _filter_effects(self):
         """Filter the effect list based on search."""
@@ -588,6 +627,17 @@ class DatabaseEditor(tk.Toplevel):
         self.location_target_var.set(effect.target_location)
         self.location_chance_var.set(str(effect.location_change_chance))
 
+        # Translation fields
+        self.translation_chance_var.set(str(effect.translation_chance))
+        self.orf_targeting_var.set(effect.orf_targeting)
+        self.templates_listbox.delete(0, tk.END)
+        self._current_templates = list(effect.templates)
+        for tmpl in effect.templates:
+            entity = self.database.get_entity(tmpl.get('entity_id', 0))
+            name = entity.name if entity else f"ID:{tmpl.get('entity_id')}"
+            self.templates_listbox.insert(tk.END,
+                f"{name} @ {tmpl.get('location', 'Cytosol')}")
+
         self._on_effect_type_change()
 
     def _new_effect(self):
@@ -621,12 +671,18 @@ class DatabaseEditor(tk.Toplevel):
         self.location_source_var.set("")
         self.location_target_var.set("")
         self.location_chance_var.set("100.0")
+        # Translation fields
+        self.translation_chance_var.set("100.0")
+        self.orf_targeting_var.set("Random ORF")
+        self.templates_listbox.delete(0, tk.END)
+        self._current_templates = []
         self._on_effect_type_change()
         self.current_selection = None
 
-    # Store inputs/outputs data
+    # Store inputs/outputs/templates data
     _current_inputs = []
     _current_outputs = []
+    _current_templates = []
 
     def _add_input(self):
         """Add an input to the current effect."""
@@ -684,6 +740,28 @@ class DatabaseEditor(tk.Toplevel):
             if hasattr(self, '_current_outputs') and idx < len(self._current_outputs):
                 self._current_outputs.pop(idx)
 
+    def _add_template(self):
+        """Add a template (RNA entity) to the current Translation effect."""
+        dialog = TemplateDialog(self, self.database)
+        self.wait_window(dialog)
+        if dialog.result:
+            if not hasattr(self, '_current_templates'):
+                self._current_templates = []
+            self._current_templates.append(dialog.result)
+            entity = self.database.get_entity(dialog.result['entity_id'])
+            name = entity.name if entity else f"ID:{dialog.result['entity_id']}"
+            self.templates_listbox.insert(tk.END,
+                f"{name} @ {dialog.result['location']}")
+
+    def _remove_template(self):
+        """Remove selected template."""
+        selection = self.templates_listbox.curselection()
+        if selection:
+            idx = selection[0]
+            self.templates_listbox.delete(idx)
+            if hasattr(self, '_current_templates') and idx < len(self._current_templates):
+                self._current_templates.pop(idx)
+
     def _save_effect(self):
         """Save the current effect."""
         name = self.effect_name_var.get().strip()
@@ -699,9 +777,10 @@ class DatabaseEditor(tk.Toplevel):
         effect_id_str = self.effect_id_var.get()
         effect_id = int(effect_id_str) if effect_id_str else 0
 
-        # Get inputs/outputs from instance or existing effect
+        # Get inputs/outputs/templates from instance or existing effect
         inputs = getattr(self, '_current_inputs', [])
         outputs = getattr(self, '_current_outputs', [])
+        templates = getattr(self, '_current_templates', [])
 
         effect = Effect(
             id=effect_id,
@@ -724,7 +803,10 @@ class DatabaseEditor(tk.Toplevel):
             source_location=self.location_source_var.get(),
             target_location=self.location_target_var.get(),
             affected_entity_id=int(self.location_entity_var.get()) if self.location_entity_var.get() else None,
-            location_change_chance=float(self.location_chance_var.get() or 100)
+            location_change_chance=float(self.location_chance_var.get() or 100),
+            templates=templates,
+            translation_chance=float(self.translation_chance_var.get() or 100),
+            orf_targeting=self.orf_targeting_var.get() or "Random ORF"
         )
 
         if effect_id in self.database.effects:
@@ -1543,5 +1625,74 @@ class UnpackGenomeDialog(tk.Toplevel):
             'amount': 1,  # Will spawn all genome entities
             'location': location,
             'is_unpack_genome': True
+        }
+        self.destroy()
+
+
+class TemplateDialog(tk.Toplevel):
+    """Dialog for adding RNA template entities to Translation effects."""
+
+    def __init__(self, parent, database: GameDatabase):
+        super().__init__(parent)
+        self.title("Add Template (RNA)")
+        self.database = database
+        self.result = None
+
+        self.transient(parent)
+        self.grab_set()
+
+        self._create_ui()
+        self.geometry("350x200")
+
+    def _create_ui(self):
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text="Templates are RNA entities that can be\nused for translation. They are never consumed.",
+                  wraplength=300).grid(row=0, column=0, columnspan=2, pady=10)
+
+        # Entity selection - only RNA entities
+        ttk.Label(frame, text="RNA Entity:").grid(row=1, column=0, sticky='w', pady=5)
+        self.entity_var = tk.StringVar()
+        rna_entities = [(e.id, f"[{e.id}] {e.name}")
+                        for e in self.database.entities.values()
+                        if e.category == EntityCategory.RNA.value]
+        self.entity_combo = ttk.Combobox(frame, textvariable=self.entity_var,
+                                          values=[e[1] for e in rna_entities], width=30)
+        self.entity_combo.grid(row=1, column=1, sticky='w', pady=5)
+
+        # Location
+        ttk.Label(frame, text="Location:").grid(row=2, column=0, sticky='w', pady=5)
+        self.location_var = tk.StringVar()
+        ttk.Combobox(frame, textvariable=self.location_var,
+                     values=[loc.value for loc in CellLocation], state='readonly', width=17).grid(
+            row=2, column=1, sticky='w', pady=5)
+
+        # Buttons
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        ttk.Button(btn_frame, text="OK", command=self._ok).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=5)
+
+    def _ok(self):
+        entity_text = self.entity_var.get()
+        if not entity_text:
+            messagebox.showerror("Error", "Please select an RNA entity.")
+            return
+
+        try:
+            entity_id = int(entity_text.split(']')[0][1:])
+        except (ValueError, IndexError):
+            messagebox.showerror("Error", "Invalid entity selection.")
+            return
+
+        location = self.location_var.get()
+        if not location:
+            messagebox.showerror("Error", "Please select a location.")
+            return
+
+        self.result = {
+            'entity_id': entity_id,
+            'location': location
         }
         self.destroy()

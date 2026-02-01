@@ -28,6 +28,14 @@ class EffectType(Enum):
     TRANSITION = "Transition"
     MODIFY_TRANSITION = "Modify transition"
     CHANGE_LOCATION = "Change location"
+    TRANSLATION = "Translation"
+
+
+class OrfTargeting(Enum):
+    """ORF targeting options for Translation effects."""
+    RANDOM = "Random ORF"
+    ORF1_ONLY = "ORF-1 only"
+    NOT_ORF1 = "Not ORF-1"
 
 
 class MilestoneType(Enum):
@@ -115,6 +123,11 @@ class Effect:
     affected_entity_id: Optional[int] = None
     location_change_chance: float = 100.0
 
+    # For Translation effects
+    templates: list = field(default_factory=list)  # List of template dicts (RNA entities, location)
+    translation_chance: float = 100.0  # Percentage 0-100
+    orf_targeting: str = "Random ORF"  # OrfTargeting value
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -137,7 +150,10 @@ class Effect:
             "source_location": self.source_location,
             "target_location": self.target_location,
             "affected_entity_id": self.affected_entity_id,
-            "location_change_chance": self.location_change_chance
+            "location_change_chance": self.location_change_chance,
+            "templates": self.templates,
+            "translation_chance": self.translation_chance,
+            "orf_targeting": self.orf_targeting
         }
 
     @classmethod
@@ -163,7 +179,10 @@ class Effect:
             source_location=data.get("source_location", ""),
             target_location=data.get("target_location", ""),
             affected_entity_id=data.get("affected_entity_id"),
-            location_change_chance=data.get("location_change_chance", 100.0)
+            location_change_chance=data.get("location_change_chance", 100.0),
+            templates=data.get("templates", []),
+            translation_chance=data.get("translation_chance", 100.0),
+            orf_targeting=data.get("orf_targeting", "Random ORF")
         )
 
 

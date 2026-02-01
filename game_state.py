@@ -6,7 +6,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Optional
 from database import GameDatabase
-from models import Gene, Effect
+from models import Gene, Effect, EffectType
 
 
 @dataclass
@@ -425,8 +425,115 @@ class GameState:
                         types.add(type_name)
         return types
 
-    def get_all_effects(self) -> list[Effect]:
-        """Get all effects from installed genes (no duplicates)."""
+    def get_enabled_protein_entity_ids(self) -> set:
+        """Get all protein entity IDs enabled by installed genes."""
+        ids = set()
+        for item in self.installed_genes:
+            if not self.is_orf(item):
+                gene = self.get_gene(item)
+                if gene and gene.gene_type_entity_id is not None:
+                    ids.add(gene.gene_type_entity_id)
+        return ids
+
+    def can_entity_exist(self, entity_id: int) -> bool:
+        """Check if an entity can exist based on enabled types.
+
+        Non-protein entities can always exist.
+        Protein entities can only exist if their type is enabled by genes.
+        """
+        entity = self.database.get_entity(entity_id)
+        if entity is None:
+            return False
+
+        # Non-proteins can always exist
+        if entity.category != "Protein":
+            return True
+
+        # Proteins can only exist if their type is enabled
+        enabled_ids = self.get_enabled_protein_entity_ids()
+        return entity_id in enabled_ids
+
+    def _can_transition_happen(self, effect: Effect) -> bool:
+        """Check if a Transition effect can happen based on enabled types."""
+        # Check all inputs can exist
+        for inp in effect.inputs:
+            entity_id = inp.get('entity_id', 0)
+            if not self.can_entity_exist(entity_id):
+                return False
+
+        # Check at least one output can exist
+        has_valid_output = False
+        for out in effect.outputs:
+            # Unpack genome outputs are always valid
+            if out.get('is_unpack_genome', False):
+                has_valid_output = True
+                break
+            entity_id = out.get('entity_id', 0)
+            if self.can_entity_exist(entity_id):
+                has_valid_output = True
+                break
+
+        return has_valid_output
+
+    def _can_modify_happen(self, effect: Effect, valid_effect_ids: set) -> bool:
+        """Check if a Modify transition effect can happen."""
+        # If targeting a specific effect ID, check if it's in valid effects
+        if effect.target_effect_id is not None:
+            return effect.target_effect_id in valid_effect_ids
+
+        # If targeting by category, check if any valid effect has that category
+        if effect.target_category:
+            for eid in valid_effect_ids:
+                target_effect = self.get_effect(eid)
+                if target_effect and target_effect.category == effect.target_category:
+                    return True
+            return False
+
+        # No target specified - effect can apply to anything
+        return True
+
+    def _can_change_location_happen(self, effect: Effect) -> bool:
+        """Check if a Change location effect can happen."""
+        if effect.affected_entity_id is None:
+            return True  # Affects all entities
+        return self.can_entity_exist(effect.affected_entity_id)
+
+    def _can_translation_happen(self, effect: Effect) -> bool:
+        """Check if a Translation effect can happen based on ORFs."""
+        orf_structure = self.get_orf_structure()
+
+        if not orf_structure:
+            return False  # No ORFs with genes
+
+        orf_targeting = effect.orf_targeting
+
+        if orf_targeting == "Random ORF":
+            # Need at least one ORF
+            return len(orf_structure) > 0
+
+        elif orf_targeting == "ORF-1 only":
+            # Need ORF-1 specifically
+            for orf_info in orf_structure:
+                if orf_info['orf'] == "ORF-1":
+                    return True
+            return False
+
+        elif orf_targeting == "Not ORF-1":
+            # Need at least one ORF that is not ORF-1
+            for orf_info in orf_structure:
+                if orf_info['orf'] != "ORF-1":
+                    return True
+            return False
+
+        return True  # Unknown targeting, allow by default
+
+    def get_all_effects(self, filter_invalid: bool = True) -> list[Effect]:
+        """Get all effects from installed genes (no duplicates).
+
+        Args:
+            filter_invalid: If True, only include effects that can actually happen
+                           based on enabled types, ORFs, etc.
+        """
         effect_ids = set()
         for item in self.installed_genes:
             if not self.is_orf(item):
@@ -434,16 +541,108 @@ class GameState:
                 if gene:
                     effect_ids.update(gene.effect_ids)
 
+        if not filter_invalid:
+            effects = []
+            for eid in sorted(effect_ids):
+                effect = self.get_effect(eid)
+                if effect:
+                    effects.append(effect)
+            return effects
+
+        # First pass: filter Transition, Change location, and Translation effects
+        valid_effect_ids = set()
+        pending_modify_effects = []
+
+        for eid in effect_ids:
+            effect = self.get_effect(eid)
+            if not effect:
+                continue
+
+            if effect.effect_type == EffectType.TRANSITION.value:
+                if self._can_transition_happen(effect):
+                    valid_effect_ids.add(eid)
+
+            elif effect.effect_type == EffectType.CHANGE_LOCATION.value:
+                if self._can_change_location_happen(effect):
+                    valid_effect_ids.add(eid)
+
+            elif effect.effect_type == EffectType.TRANSLATION.value:
+                if self._can_translation_happen(effect):
+                    valid_effect_ids.add(eid)
+
+            elif effect.effect_type == EffectType.MODIFY_TRANSITION.value:
+                # Defer modify effects to second pass
+                pending_modify_effects.append(effect)
+
+            else:
+                # Unknown effect types are included by default
+                valid_effect_ids.add(eid)
+
+        # Second pass: filter Modify effects based on valid effects
+        for effect in pending_modify_effects:
+            if self._can_modify_happen(effect, valid_effect_ids):
+                valid_effect_ids.add(effect.id)
+
+        # Build final list
         effects = []
-        for eid in sorted(effect_ids):
+        for eid in sorted(valid_effect_ids):
             effect = self.get_effect(eid)
             if effect:
                 effects.append(effect)
         return effects
 
-    def get_global_effects(self) -> list[Effect]:
-        """Get all global effects from database."""
-        return self.database.get_global_effects()
+    def get_global_effects(self, filter_invalid: bool = True) -> list[Effect]:
+        """Get all global effects from database.
+
+        Args:
+            filter_invalid: If True, only include effects that can actually happen.
+        """
+        global_effects = self.database.get_global_effects()
+
+        if not filter_invalid:
+            return global_effects
+
+        # Get the valid gene effects first (needed for modify effect filtering)
+        gene_effect_ids = set()
+        for item in self.installed_genes:
+            if not self.is_orf(item):
+                gene = self.get_gene(item)
+                if gene:
+                    gene_effect_ids.update(gene.effect_ids)
+
+        # Build set of valid effect IDs from gene effects
+        valid_gene_effect_ids = set()
+        for eid in gene_effect_ids:
+            effect = self.get_effect(eid)
+            if effect and effect.effect_type == EffectType.TRANSITION.value:
+                if self._can_transition_happen(effect):
+                    valid_gene_effect_ids.add(eid)
+
+        # Filter global effects
+        filtered = []
+        for effect in global_effects:
+            if effect.effect_type == EffectType.TRANSITION.value:
+                if self._can_transition_happen(effect):
+                    filtered.append(effect)
+
+            elif effect.effect_type == EffectType.CHANGE_LOCATION.value:
+                if self._can_change_location_happen(effect):
+                    filtered.append(effect)
+
+            elif effect.effect_type == EffectType.TRANSLATION.value:
+                if self._can_translation_happen(effect):
+                    filtered.append(effect)
+
+            elif effect.effect_type == EffectType.MODIFY_TRANSITION.value:
+                # Combine valid gene effects with already filtered global effects
+                all_valid_ids = valid_gene_effect_ids | {e.id for e in filtered}
+                if self._can_modify_happen(effect, all_valid_ids):
+                    filtered.append(effect)
+
+            else:
+                filtered.append(effect)
+
+        return filtered
 
     def complete_play_round(self):
         """Called when a play round is completed. Advances to next round."""

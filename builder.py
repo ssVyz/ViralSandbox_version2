@@ -131,7 +131,7 @@ class BuilderModule(tk.Toplevel):
         genome_display.pack(pady=10)
 
         # Genome visualization canvas (taller to accommodate ORF indicators)
-        self.genome_canvas = tk.Canvas(visual_frame, height=100, bg='white')
+        self.genome_canvas = tk.Canvas(visual_frame, height=115, bg='white')
         self.genome_canvas.pack(fill=tk.X, padx=20, pady=5)
 
         # Right side - configuration options
@@ -376,9 +376,9 @@ class BuilderModule(tk.Toplevel):
         if width < 10:
             width = 400
 
-        height = 100
+        height = 115
         orf_area_height = 30  # Space for ORF indicators at top
-        genome_center_y = orf_area_height + 32  # Center of genome area
+        genome_center_y = orf_area_height + 40  # Center of genome area
 
         # If no genes installed, show placeholder message
         if total_length == 0:
@@ -395,15 +395,25 @@ class BuilderModule(tk.Toplevel):
         right_margin = 50
         available_width = width - left_margin - right_margin
 
-        # Draw 5' and 3' labels
+        # Determine if we need to flip 5'/3' labels
+        # Flip for negative-strand RNA or any DNA genome (they represent the template/antisense strand)
+        is_flipped = (config.nucleic_acid == "DNA" or
+                      (config.nucleic_acid == "RNA" and
+                       config.strandedness == "single" and
+                       config.polarity == "negative"))
+
+        # Draw 5' and 3' labels (flipped for negative-strand RNA or DNA)
+        left_label = "3'" if is_flipped else "5'"
+        right_label = "5'" if is_flipped else "3'"
+
         self.genome_canvas.create_text(
             left_margin - 5, genome_center_y,
-            text="5'", font=('TkDefaultFont', 12, 'bold'),
+            text=left_label, font=('TkDefaultFont', 12, 'bold'),
             fill='#333333', anchor='e'
         )
         self.genome_canvas.create_text(
             width - right_margin + 5, genome_center_y,
-            text="3'", font=('TkDefaultFont', 12, 'bold'),
+            text=right_label, font=('TkDefaultFont', 12, 'bold'),
             fill='#333333', anchor='w'
         )
 
