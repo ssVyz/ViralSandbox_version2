@@ -428,6 +428,9 @@ class GeneOfferDialog(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
 
+        # Handle window close (treat as skip)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
         # Center on parent
         self.update_idletasks()
         x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
@@ -435,6 +438,11 @@ class GeneOfferDialog(tk.Toplevel):
         self.geometry(f'+{x}+{y}')
 
         self._create_ui()
+
+    def _on_close(self):
+        """Handle window close button."""
+        self.selected_gene = None
+        self.destroy()
 
     def _create_ui(self):
         """Create the dialog UI."""

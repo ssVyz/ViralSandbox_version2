@@ -124,6 +124,21 @@ class DatabaseEditor(tk.Toplevel):
 
         return frame, search_var, listbox, btn_frame
 
+    def _select_item_in_listbox(self, listbox: tk.Listbox, item_id: int):
+        """Select an item in a listbox by its ID."""
+        listbox.selection_clear(0, tk.END)
+        for i in range(listbox.size()):
+            text = listbox.get(i)
+            # Extract ID from format like "[123] Name" or "* [123] Name"
+            try:
+                id_part = text.split('[')[1].split(']')[0]
+                if int(id_part) == item_id:
+                    listbox.selection_set(i)
+                    listbox.see(i)
+                    return
+            except (IndexError, ValueError):
+                continue
+
     # ==================== ENTITIES TAB ====================
 
     def _create_entities_tab(self) -> ttk.Frame:
@@ -240,10 +255,22 @@ class DatabaseEditor(tk.Toplevel):
             self._on_entity_category_change()
 
     def _new_entity(self):
-        """Create a new entity."""
-        self._clear_entity_form()
-        self.entity_id_var.set(str(self.database.get_next_entity_id()))
-        self.current_selection = ('entity', 0)
+        """Create a new entity with placeholder values."""
+        new_id = self.database.get_next_entity_id()
+        entity = ViralEntity(
+            id=new_id,
+            name="New Entity",
+            category=EntityCategory.PROTEIN.value,
+            entity_type="None",
+            description=""
+        )
+        self.database.add_entity(entity)
+        self._filter_entities()
+        self._update_status()
+        # Select the new entity in the listbox
+        self._select_item_in_listbox(self.entity_listbox, new_id)
+        self._populate_entity_form(entity)
+        self.current_selection = ('entity', new_id)
 
     def _clear_entity_form(self):
         """Clear the entity form."""
@@ -662,10 +689,22 @@ class DatabaseEditor(tk.Toplevel):
         self._on_effect_type_change()
 
     def _new_effect(self):
-        """Create a new effect."""
-        self._clear_effect_form()
-        self.effect_id_var.set(str(self.database.get_next_effect_id()))
-        self.current_selection = ('effect', 0)
+        """Create a new effect with placeholder values."""
+        new_id = self.database.get_next_effect_id()
+        effect = Effect(
+            id=new_id,
+            name="New Effect",
+            effect_type=EffectType.TRANSITION.value,
+            category="",
+            description=""
+        )
+        self.database.add_effect(effect)
+        self._filter_effects()
+        self._update_status()
+        # Select the new effect in the listbox
+        self._select_item_in_listbox(self.effect_listbox, new_id)
+        self._populate_effect_form(effect)
+        self.current_selection = ('effect', new_id)
 
     def _clear_effect_form(self):
         """Clear the effect form."""
@@ -1021,10 +1060,25 @@ class DatabaseEditor(tk.Toplevel):
                 self.gene_effects_listbox.insert(tk.END, f"[{effect.id}] {effect.name}")
 
     def _new_gene(self):
-        """Create a new gene."""
-        self._clear_gene_form()
-        self.gene_id_var.set(str(self.database.get_next_gene_id()))
-        self.current_selection = ('gene', 0)
+        """Create a new gene with placeholder values."""
+        new_id = self.database.get_next_gene_id()
+        gene = Gene(
+            id=new_id,
+            name="New Gene",
+            set_name="Custom",
+            install_cost=0,
+            length=300,
+            gene_type_entity_id=None,
+            effect_ids=[],
+            description=""
+        )
+        self.database.add_gene(gene)
+        self._filter_genes()
+        self._update_status()
+        # Select the new gene in the listbox
+        self._select_item_in_listbox(self.gene_listbox, new_id)
+        self._populate_gene_form(gene)
+        self.current_selection = ('gene', new_id)
 
     def _clear_gene_form(self):
         """Clear the gene form."""
@@ -1292,10 +1346,22 @@ class DatabaseEditor(tk.Toplevel):
         self._on_milestone_type_change()
 
     def _new_milestone(self):
-        """Create a new milestone."""
-        self._clear_milestone_form()
-        self.milestone_id_var.set(str(self.database.get_next_milestone_id()))
-        self.current_selection = ('milestone', 0)
+        """Create a new milestone with placeholder values."""
+        new_id = self.database.get_next_milestone_id()
+        milestone = Milestone(
+            id=new_id,
+            name="New Milestone",
+            milestone_type=MilestoneType.ENTER_COMPARTMENT.value,
+            reward_ep=10,
+            description=""
+        )
+        self.database.add_milestone(milestone)
+        self._filter_milestones()
+        self._update_status()
+        # Select the new milestone in the listbox
+        self._select_item_in_listbox(self.milestone_listbox, new_id)
+        self._populate_milestone_form(milestone)
+        self.current_selection = ('milestone', new_id)
 
     def _clear_milestone_form(self):
         """Clear the milestone form."""

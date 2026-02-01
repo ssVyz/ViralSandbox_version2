@@ -1364,6 +1364,13 @@ class PlayModule(tk.Toplevel):
         dialog.transient(self)
         dialog.grab_set()
 
+        # Handle window close button
+        def on_dialog_close():
+            dialog.destroy()
+            self._end_round()
+
+        dialog.protocol("WM_DELETE_WINDOW", on_dialog_close)
+
         frame = ttk.Frame(dialog, padding=20)
         frame.pack(fill=tk.BOTH, expand=True)
 
@@ -1422,6 +1429,13 @@ class PlayModule(tk.Toplevel):
 
     def _return_to_builder(self):
         """Return to the builder module."""
-        if self.on_return_callback:
-            self.on_return_callback(victory=self.sim_state.is_victory)
+        # Store callback and victory state before destroying
+        callback = self.on_return_callback
+        victory = self.sim_state.is_victory
+
+        # Destroy this window first to avoid window management issues
         self.destroy()
+
+        # Then call the callback
+        if callback:
+            callback(victory=victory)

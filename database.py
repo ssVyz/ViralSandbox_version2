@@ -281,7 +281,9 @@ class GameDatabase:
         """Add an entity to the database. Returns the assigned ID."""
         if entity.id == 0:
             entity.id = self._next_entity_id
-            self._next_entity_id += 1
+        # Always ensure next ID is greater than any added entity's ID
+        if entity.id >= self._next_entity_id:
+            self._next_entity_id = entity.id + 1
 
         # Auto-set entity_type for proteins to their own name
         if entity.category == "Protein":
@@ -348,7 +350,9 @@ class GameDatabase:
         """Add an effect to the database. Returns the assigned ID."""
         if effect.id == 0:
             effect.id = self._next_effect_id
-            self._next_effect_id += 1
+        # Always ensure next ID is greater than any added effect's ID
+        if effect.id >= self._next_effect_id:
+            self._next_effect_id = effect.id + 1
         self.effects[effect.id] = effect
         self.modified = True
         return effect.id
@@ -382,7 +386,9 @@ class GameDatabase:
         """Add a gene to the database. Returns the assigned ID."""
         if gene.id == 0:
             gene.id = self._next_gene_id
-            self._next_gene_id += 1
+        # Always ensure next ID is greater than any added gene's ID
+        if gene.id >= self._next_gene_id:
+            self._next_gene_id = gene.id + 1
         self.genes[gene.id] = gene
         self.modified = True
         return gene.id
@@ -412,7 +418,9 @@ class GameDatabase:
         """Add a milestone to the database. Returns the assigned ID."""
         if milestone.id == 0:
             milestone.id = self._next_milestone_id
-            self._next_milestone_id += 1
+        # Always ensure next ID is greater than any added milestone's ID
+        if milestone.id >= self._next_milestone_id:
+            self._next_milestone_id = milestone.id + 1
         self.milestones[milestone.id] = milestone
         self.modified = True
         return milestone.id
