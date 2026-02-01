@@ -179,6 +179,14 @@ class DatabaseEditor(tk.Toplevel):
             row=row, column=1, sticky='w', pady=2)
 
         row += 1
+        ttk.Label(right_frame, text="Abbreviation:").grid(row=row, column=0, sticky='w', pady=2)
+        self.entity_abbrev_var = tk.StringVar()
+        abbrev_frame = ttk.Frame(right_frame)
+        abbrev_frame.grid(row=row, column=1, sticky='w', pady=2)
+        ttk.Entry(abbrev_frame, textvariable=self.entity_abbrev_var, width=15).pack(side=tk.LEFT)
+        ttk.Label(abbrev_frame, text="(optional, for compact display)").pack(side=tk.LEFT, padx=5)
+
+        row += 1
         ttk.Label(right_frame, text="Category:").grid(row=row, column=0, sticky='w', pady=2)
         self.entity_category_var = tk.StringVar()
         category_combo = ttk.Combobox(right_frame, textvariable=self.entity_category_var,
@@ -246,6 +254,7 @@ class DatabaseEditor(tk.Toplevel):
         if entity:
             self.entity_id_var.set(str(entity.id))
             self.entity_name_var.set(entity.name)
+            self.entity_abbrev_var.set(entity.abbreviation)
             self.entity_category_var.set(entity.category)
             self.entity_type_var.set(entity.entity_type)
             self.entity_desc_text.delete('1.0', tk.END)
@@ -276,6 +285,7 @@ class DatabaseEditor(tk.Toplevel):
         """Clear the entity form."""
         self.entity_id_var.set("")
         self.entity_name_var.set("")
+        self.entity_abbrev_var.set("")
         self.entity_category_var.set("")
         self.entity_type_var.set("None")
         self.entity_desc_text.delete('1.0', tk.END)
@@ -302,7 +312,8 @@ class DatabaseEditor(tk.Toplevel):
             name=name,
             category=category,
             entity_type=self.entity_type_var.get() or "None",
-            description=self.entity_desc_text.get('1.0', tk.END).strip()
+            description=self.entity_desc_text.get('1.0', tk.END).strip(),
+            abbreviation=self.entity_abbrev_var.get().strip()
         )
 
         if entity_id in self.database.entities:
@@ -940,6 +951,14 @@ class DatabaseEditor(tk.Toplevel):
             row=row, column=1, sticky='w', pady=2)
 
         row += 1
+        ttk.Label(right_frame, text="Abbreviation:").grid(row=row, column=0, sticky='w', pady=2)
+        self.gene_abbrev_var = tk.StringVar()
+        gene_abbrev_frame = ttk.Frame(right_frame)
+        gene_abbrev_frame.grid(row=row, column=1, sticky='w', pady=2)
+        ttk.Entry(gene_abbrev_frame, textvariable=self.gene_abbrev_var, width=15).pack(side=tk.LEFT)
+        ttk.Label(gene_abbrev_frame, text="(optional, for compact display)").pack(side=tk.LEFT, padx=5)
+
+        row += 1
         ttk.Label(right_frame, text="Set Name:").grid(row=row, column=0, sticky='w', pady=2)
         self.gene_set_var = tk.StringVar()
         ttk.Entry(right_frame, textvariable=self.gene_set_var, width=40).grid(
@@ -1033,6 +1052,7 @@ class DatabaseEditor(tk.Toplevel):
         """Populate the gene form with data."""
         self.gene_id_var.set(str(gene.id))
         self.gene_name_var.set(gene.name)
+        self.gene_abbrev_var.set(gene.abbreviation)
         self.gene_set_var.set(gene.set_name)
         self.gene_cost_var.set(str(gene.install_cost))
         self.gene_length_var.set(str(gene.length))
@@ -1084,6 +1104,7 @@ class DatabaseEditor(tk.Toplevel):
         """Clear the gene form."""
         self.gene_id_var.set("")
         self.gene_name_var.set("")
+        self.gene_abbrev_var.set("")
         self.gene_set_var.set("")
         self.gene_cost_var.set("")
         self.gene_length_var.set("")
@@ -1158,7 +1179,8 @@ class DatabaseEditor(tk.Toplevel):
             gene_type_entity_id=gene_type_entity_id,
             effect_ids=list(self._current_gene_effects),
             description=self.gene_desc_text.get('1.0', tk.END).strip(),
-            is_utr=self.gene_is_utr_var.get()
+            is_utr=self.gene_is_utr_var.get(),
+            abbreviation=self.gene_abbrev_var.get().strip()
         )
 
         if gene_id in self.database.genes:

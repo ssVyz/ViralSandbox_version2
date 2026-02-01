@@ -497,8 +497,10 @@ class BuilderModule(tk.Toplevel):
 
                     # Add gene name label if wide enough
                     if gene_width > 40:
-                        # Truncate name if needed
-                        display_name = gene.name[:8] + "..." if len(gene.name) > 10 else gene.name
+                        # Use abbreviation if available, otherwise truncate name
+                        display_name = gene.get_display_name(use_abbreviation=True)
+                        if len(display_name) > 10:
+                            display_name = display_name[:8] + "..."
                         self.genome_canvas.create_text(
                             x_pos + gene_width // 2, genome_center_y,
                             text=display_name,

@@ -1223,12 +1223,15 @@ class PlayModule(tk.Toplevel):
                 for item, count, is_poly in sorted(entities_by_location[location],
                                                    key=lambda x: -x[1]):
                     if is_poly:
-                        # Polyprotein - build display name
+                        # Polyprotein - build display name using abbreviations if available
                         poly = item
                         protein_names = []
                         for eid in poly.protein_entity_ids:
                             entity = self.game_state.database.get_entity(eid)
-                            protein_names.append(entity.name if entity else f"ID:{eid}")
+                            if entity:
+                                protein_names.append(entity.get_display_name(use_abbreviation=True))
+                            else:
+                                protein_names.append(f"ID:{eid}")
                         name = f"Poly ({', '.join(protein_names)})"
                         color = '#FF8C00'  # Dark orange for polyproteins
                     else:

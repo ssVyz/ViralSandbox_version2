@@ -5,119 +5,136 @@
       "name": "Enveloped virion",
       "category": "Virion",
       "entity_type": "None",
-      "description": "A complete virus particle with a lipid envelope. This is a starter entity."
+      "description": "A complete virus particle with a lipid envelope. This is a starter entity.",
+      "abbreviation": ""
     },
     {
       "id": 2,
       "name": "Unenveloped virion",
       "category": "Virion",
       "entity_type": "None",
-      "description": "A naked virus particle without an envelope. This is a starter entity."
+      "description": "A naked virus particle without an envelope. This is a starter entity.",
+      "abbreviation": ""
     },
     {
       "id": 3,
       "name": "Positive-sense RNA",
       "category": "RNA",
       "entity_type": "None",
-      "description": "Positive-sense single-stranded RNA genome. Can be directly translated into proteins."
+      "description": "Positive-sense single-stranded RNA genome. Can be directly translated into proteins.",
+      "abbreviation": ""
     },
     {
       "id": 4,
       "name": "Negative-sense RNA",
       "category": "RNA",
       "entity_type": "None",
-      "description": "Negative-sense single-stranded RNA genome. Must be transcribed before translation."
+      "description": "Negative-sense single-stranded RNA genome. Must be transcribed before translation.",
+      "abbreviation": ""
     },
     {
       "id": 5,
       "name": "ssDNA",
       "category": "DNA",
       "entity_type": "None",
-      "description": "Single-stranded DNA genome."
+      "description": "Single-stranded DNA genome.",
+      "abbreviation": ""
     },
     {
       "id": 6,
       "name": "dsDNA",
       "category": "DNA",
       "entity_type": "None",
-      "description": "Double-stranded DNA genome."
+      "description": "Double-stranded DNA genome.",
+      "abbreviation": ""
     },
     {
       "id": 7,
       "name": "Polyprotein",
       "category": "Protein",
       "entity_type": "Polyprotein",
-      "description": "A large precursor protein that is cleaved into functional viral proteins."
+      "description": "A large precursor protein that is cleaved into functional viral proteins.",
+      "abbreviation": ""
     },
     {
       "id": 8,
       "name": "Bound Virion",
       "category": "Viral complex",
       "entity_type": "None",
-      "description": "A virion bound to the cell membrane"
+      "description": "A virion bound to the cell membrane",
+      "abbreviation": ""
     },
     {
       "id": 9,
       "name": "Endocytosed Virion",
       "category": "Viral complex",
       "entity_type": "None",
-      "description": "A virion inside an endosome"
+      "description": "A virion inside an endosome",
+      "abbreviation": ""
     },
     {
       "id": 10,
       "name": "Viral mRNA",
       "category": "RNA",
       "entity_type": "None",
-      "description": "Messenger RNA for viral protein synthesis"
+      "description": "Messenger RNA for viral protein synthesis",
+      "abbreviation": ""
     },
     {
       "id": 11,
       "name": "RNA-dep. RNA-Polymerase",
       "category": "Protein",
       "entity_type": "RNA-dep. RNA-Polymerase",
-      "description": "Enzyme that synthesizes RNA from an RNA template"
+      "description": "Enzyme that synthesizes RNA from an RNA template",
+      "abbreviation": "RdRp"
     },
     {
       "id": 12,
       "name": "Capsid Protein",
       "category": "Protein",
       "entity_type": "Capsid Protein",
-      "description": "Protein that forms the viral capsid"
+      "description": "Protein that forms the viral capsid",
+      "abbreviation": "cap"
     },
     {
       "id": 13,
       "name": "Surface Glycoprotein",
       "category": "Protein",
       "entity_type": "Surface Glycoprotein",
-      "description": "Protein on the viral surface for cell entry"
+      "description": "Protein on the viral surface for cell entry",
+      "abbreviation": "gp"
     },
     {
       "id": 14,
       "name": "DNA Polymerase",
       "category": "Protein",
       "entity_type": "DNA Polymerase",
-      "description": "Viral DNA Polymerase. Compies DNA."
+      "description": "Viral DNA Polymerase. Compies DNA.",
+      "abbreviation": ""
     },
     {
       "id": 15,
       "name": "Regulatory protein",
       "category": "Protein",
       "entity_type": "Regulatory protein",
-      "description": "Small regulatory proteins"
+      "description": "Small regulatory proteins",
+      "abbreviation": ""
     },
     {
       "id": 16,
       "name": "Integrase",
       "category": "Protein",
       "entity_type": "Integrase",
-      "description": "Can integrate viral DNA into the host chromosome."
+      "description": "Can integrate viral DNA into the host chromosome.",
+      "abbreviation": ""
     },
     {
       "id": 17,
       "name": "Viral genome complex",
       "category": "Viral complex",
       "entity_type": "None",
-      "description": "Partly unpacked virion"
+      "description": "Partly unpacked virion",
+      "abbreviation": ""
     }
   ],
   "effects": [
@@ -398,7 +415,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.1,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -444,7 +461,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.1,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -587,7 +604,8 @@
         1
       ],
       "description": "Encodes the spike glycoprotein for receptor binding",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 2,
@@ -600,7 +618,8 @@
         2
       ],
       "description": "Facilitates membrane fusion and endocytosis",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 3,
@@ -613,7 +632,8 @@
         3
       ],
       "description": "Promotes efficient uncoating in endosomes",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 4,
@@ -626,7 +646,8 @@
         4
       ],
       "description": "Enhances receptor binding affinity",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 5,
@@ -637,7 +658,8 @@
       "gene_type_entity_id": 15,
       "effect_ids": [],
       "description": "Has various functions",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 6,
@@ -648,7 +670,8 @@
       "gene_type_entity_id": 16,
       "effect_ids": [],
       "description": "HIV int gene",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 7,
@@ -664,7 +687,8 @@
         11
       ],
       "description": "Enterovirus capsid proteins.",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 8,
@@ -677,7 +701,8 @@
         12
       ],
       "description": "Enterovirus 2A Protease. Also responsible for shutting of cap dependent translation.",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": "2Apro"
     },
     {
       "id": 9,
@@ -688,7 +713,8 @@
       "gene_type_entity_id": null,
       "effect_ids": [],
       "description": "Enterovirus UTR",
-      "is_utr": true
+      "is_utr": true,
+      "abbreviation": "UTR"
     },
     {
       "id": 10,
@@ -701,7 +727,8 @@
         12
       ],
       "description": "Main Enterovirus Protease",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": "3Cpro"
     },
     {
       "id": 11,
@@ -712,7 +739,8 @@
       "gene_type_entity_id": 15,
       "effect_ids": [],
       "description": "VPg for Translation",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": ""
     },
     {
       "id": 12,
@@ -726,7 +754,8 @@
         9
       ],
       "description": "Enterovirus RdRp",
-      "is_utr": false
+      "is_utr": false,
+      "abbreviation": "3Dpol"
     }
   ],
   "milestones": [
@@ -788,52 +817,52 @@
   ],
   "degradation_chances": {
     "Virion": {
-      "Extracellular": 2.0,
-      "Membrane": 3.0,
-      "Endosome": 5.0,
-      "ER": 4.0,
-      "Cytosol": 3.0,
-      "Nucleus": 2.0
+      "Extracellular": 5.0,
+      "Membrane": 5.0,
+      "Endosome": 10.0,
+      "ER": 25.0,
+      "Cytosol": 5.0,
+      "Nucleus": 5.0
     },
     "Viral complex": {
-      "Extracellular": 5.0,
-      "Membrane": 4.0,
-      "Endosome": 6.0,
-      "ER": 5.0,
-      "Cytosol": 4.0,
-      "Nucleus": 3.0
+      "Extracellular": 50.0,
+      "Membrane": 50.0,
+      "Endosome": 10.0,
+      "ER": 10.0,
+      "Cytosol": 10.0,
+      "Nucleus": 5.0
     },
     "DNA": {
       "Extracellular": 10.0,
-      "Membrane": 8.0,
-      "Endosome": 7.0,
-      "ER": 6.0,
-      "Cytosol": 5.0,
+      "Membrane": 10.0,
+      "Endosome": 10.0,
+      "ER": 10.0,
+      "Cytosol": 10.0,
       "Nucleus": 2.0
     },
     "RNA": {
-      "Extracellular": 15.0,
-      "Membrane": 12.0,
-      "Endosome": 10.0,
-      "ER": 8.0,
-      "Cytosol": 6.0,
-      "Nucleus": 4.0
+      "Extracellular": 80.0,
+      "Membrane": 80.0,
+      "Endosome": 30.0,
+      "ER": 30.0,
+      "Cytosol": 30.0,
+      "Nucleus": 15.0
     },
     "Protein": {
-      "Extracellular": 8.0,
-      "Membrane": 6.0,
-      "Endosome": 7.0,
-      "ER": 5.0,
-      "Cytosol": 4.0,
+      "Extracellular": 50.0,
+      "Membrane": 50.0,
+      "Endosome": 15.0,
+      "ER": 15.0,
+      "Cytosol": 20.0,
       "Nucleus": 3.0
     }
   },
   "interferon_modifiers": {
-    "Virion": 50.0,
-    "Viral complex": 75.0,
+    "Virion": 25.0,
+    "Viral complex": 50.0,
     "DNA": 25.0,
     "RNA": 100.0,
     "Protein": 50.0
   },
-  "interferon_decay": 10.0
+  "interferon_decay": 1.0
 }

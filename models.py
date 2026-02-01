@@ -72,6 +72,13 @@ class ViralEntity:
     category: str  # EntityCategory value
     entity_type: str = "None"  # EntityType value
     description: str = ""
+    abbreviation: str = ""  # Optional short name for display in tight spaces
+
+    def get_display_name(self, use_abbreviation: bool = False) -> str:
+        """Get the name to display, using abbreviation if requested and available."""
+        if use_abbreviation and self.abbreviation:
+            return self.abbreviation
+        return self.name
 
     def to_dict(self) -> dict:
         return {
@@ -79,7 +86,8 @@ class ViralEntity:
             "name": self.name,
             "category": self.category,
             "entity_type": self.entity_type,
-            "description": self.description
+            "description": self.description,
+            "abbreviation": self.abbreviation
         }
 
     @classmethod
@@ -89,7 +97,8 @@ class ViralEntity:
             name=data["name"],
             category=data["category"],
             entity_type=data.get("entity_type", "None"),
-            description=data.get("description", "")
+            description=data.get("description", ""),
+            abbreviation=data.get("abbreviation", "")
         )
 
 
@@ -204,6 +213,13 @@ class Gene:
     effect_ids: list = field(default_factory=list)  # List of effect IDs
     description: str = ""
     is_utr: bool = False  # If True, this gene is a UTR (fixed at 5' end, only one allowed)
+    abbreviation: str = ""  # Optional short name for display in tight spaces
+
+    def get_display_name(self, use_abbreviation: bool = False) -> str:
+        """Get the name to display, using abbreviation if requested and available."""
+        if use_abbreviation and self.abbreviation:
+            return self.abbreviation
+        return self.name
 
     def to_dict(self) -> dict:
         return {
@@ -215,7 +231,8 @@ class Gene:
             "gene_type_entity_id": self.gene_type_entity_id,
             "effect_ids": self.effect_ids,
             "description": self.description,
-            "is_utr": self.is_utr
+            "is_utr": self.is_utr,
+            "abbreviation": self.abbreviation
         }
 
     @classmethod
@@ -238,7 +255,8 @@ class Gene:
             gene_type_entity_id=gene_type_entity_id,
             effect_ids=data.get("effect_ids", []),
             description=data.get("description", ""),
-            is_utr=data.get("is_utr", False)
+            is_utr=data.get("is_utr", False),
+            abbreviation=data.get("abbreviation", "")
         )
 
 
