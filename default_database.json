@@ -337,7 +337,7 @@
       "is_global": false,
       "inputs": [
         {
-          "entity_id": 1,
+          "entity_id": 2,
           "amount": 1,
           "location": "Membrane",
           "consumed": true
@@ -345,9 +345,10 @@
       ],
       "outputs": [
         {
-          "entity_id": 3,
+          "entity_id": 0,
           "amount": 1,
-          "location": "Cytosol"
+          "location": "Cytosol",
+          "is_unpack_genome": true
         }
       ],
       "chance": 50.0,

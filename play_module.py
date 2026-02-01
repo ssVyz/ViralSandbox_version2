@@ -256,7 +256,7 @@ class PlayModule(tk.Toplevel):
         frame = ttk.LabelFrame(parent, text="Population Over Time")
         frame.pack(fill=tk.X, pady=(0, 5))
 
-        self.graph_canvas = tk.Canvas(frame, height=150, bg='white')
+        self.graph_canvas = tk.Canvas(frame, height=200, bg='white')
         self.graph_canvas.pack(fill=tk.X, padx=5, pady=5)
 
         # Legend
@@ -1209,68 +1209,75 @@ class PlayModule(tk.Toplevel):
 
         y = 10
         bar_height = 18
+        text_area_width = 155  # Space reserved for entity names
+        bar_start_x = 160  # Where bars begin
 
         for location in location_order:
-            if location not in entities_by_location:
-                continue
-
-            # Location header
+            # Always show location header (even if empty)
             self.entity_canvas.create_text(10, y, text=location, anchor='w',
                                            font=('TkDefaultFont', 10, 'bold'))
             y += 20
 
-            # Entity bars
-            for item, count, is_poly in sorted(entities_by_location[location],
-                                               key=lambda x: -x[1]):
-                if is_poly:
-                    # Polyprotein - build display name
-                    poly = item
-                    protein_names = []
-                    for eid in poly.protein_entity_ids:
-                        entity = self.game_state.database.get_entity(eid)
-                        protein_names.append(entity.name if entity else f"ID:{eid}")
-                    name = f"Poly ({', '.join(protein_names)})"
-                    color = '#FF8C00'  # Dark orange for polyproteins
-                else:
-                    entity_id = item
-                    entity = self.game_state.database.get_entity(entity_id)
-                    name = entity.name if entity else f"Entity {entity_id}"
+            # Entity bars (if any entities in this location)
+            if location in entities_by_location:
+                for item, count, is_poly in sorted(entities_by_location[location],
+                                                   key=lambda x: -x[1]):
+                    if is_poly:
+                        # Polyprotein - build display name
+                        poly = item
+                        protein_names = []
+                        for eid in poly.protein_entity_ids:
+                            entity = self.game_state.database.get_entity(eid)
+                            protein_names.append(entity.name if entity else f"ID:{eid}")
+                        name = f"Poly ({', '.join(protein_names)})"
+                        color = '#FF8C00'  # Dark orange for polyproteins
+                    else:
+                        entity_id = item
+                        entity = self.game_state.database.get_entity(entity_id)
+                        name = entity.name if entity else f"Entity {entity_id}"
 
-                    # Category color
-                    color = '#888888'
-                    if entity:
-                        cat = entity.category
-                        if cat == EntityCategory.VIRION.value or cat == EntityCategory.VIRAL_COMPLEX.value:
-                            color = 'purple'
-                        elif cat == EntityCategory.RNA.value:
-                            color = 'green'
-                        elif cat == EntityCategory.DNA.value:
-                            color = 'blue'
-                        elif cat == EntityCategory.PROTEIN.value:
-                            color = 'orange'
+                        # Category color
+                        color = '#888888'
+                        if entity:
+                            cat = entity.category
+                            if cat == EntityCategory.VIRION.value or cat == EntityCategory.VIRAL_COMPLEX.value:
+                                color = 'purple'
+                            elif cat == EntityCategory.RNA.value:
+                                color = 'green'
+                            elif cat == EntityCategory.DNA.value:
+                                color = 'blue'
+                            elif cat == EntityCategory.PROTEIN.value:
+                                color = 'orange'
 
-                # Draw bar
-                bar_width = int((count / max_count) * (width - 200))
-                bar_width = max(5, bar_width)
+                    # Draw bar (compressed to leave more space for text)
+                    max_bar_width = width - bar_start_x - 50  # Leave space for count text
+                    bar_width = int((count / max_count) * max_bar_width)
+                    bar_width = max(5, bar_width)
 
-                self.entity_canvas.create_rectangle(
-                    120, y, 120 + bar_width, y + bar_height,
-                    fill=color, outline=color)
+                    self.entity_canvas.create_rectangle(
+                        bar_start_x, y, bar_start_x + bar_width, y + bar_height,
+                        fill=color, outline=color)
 
-                # Entity name (truncate if needed)
-                display_name = name[:20] if len(name) > 20 else name
-                self.entity_canvas.create_text(
-                    10, y + bar_height // 2, text=display_name, anchor='w',
-                    font=('TkDefaultFont', 9))
+                    # Entity name (truncate if needed)
+                    display_name = name[:22] if len(name) > 22 else name
+                    self.entity_canvas.create_text(
+                        15, y + bar_height // 2, text=display_name, anchor='w',
+                        font=('TkDefaultFont', 9))
 
-                # Count
-                self.entity_canvas.create_text(
-                    125 + bar_width, y + bar_height // 2, text=str(count),
-                    anchor='w', font=('TkDefaultFont', 9))
+                    # Count
+                    self.entity_canvas.create_text(
+                        bar_start_x + bar_width + 5, y + bar_height // 2, text=str(count),
+                        anchor='w', font=('TkDefaultFont', 9))
 
-                y += bar_height + 2
+                    y += bar_height + 2
+            else:
+                # Show "(empty)" for locations with no entities
+                self.entity_canvas.create_text(15, y, text="(empty)", anchor='w',
+                                               font=('TkDefaultFont', 9, 'italic'),
+                                               fill='#888888')
+                y += 18
 
-            y += 10
+            y += 8  # Space between locations
 
         # Update scroll region
         self.entity_canvas.configure(scrollregion=(0, 0, width, y + 20))
@@ -1284,11 +1291,14 @@ class PlayModule(tk.Toplevel):
 
         if width < 10 or height < 10:
             width = 400
-            height = 150
+            height = 200
 
-        margin = 40
-        graph_width = width - margin * 2
-        graph_height = height - margin
+        margin_left = 45
+        margin_right = 20
+        margin_top = 15
+        margin_bottom = 35  # More space for x-axis labels
+        graph_width = width - margin_left - margin_right
+        graph_height = height - margin_top - margin_bottom
 
         if len(self.sim_state.history) < 2:
             return
@@ -1296,23 +1306,51 @@ class PlayModule(tk.Toplevel):
         # Get last 50 turns of history
         history = self.sim_state.history[-50:]
 
-        # Find max value
+        # Find max value and add 5% padding so lines don't touch the top
         max_val = 10
         for turn, counts in history:
             for cat, count in counts.items():
                 max_val = max(max_val, count)
+        max_val = int(max_val * 1.05) + 1  # Add 5% padding
+
+        # Get turn range for x-axis labels
+        first_turn = history[0][0]
+        last_turn = history[-1][0]
 
         # Draw axes
-        self.graph_canvas.create_line(margin, height - margin,
-                                       width - margin, height - margin, fill='gray')
-        self.graph_canvas.create_line(margin, height - margin,
-                                       margin, 10, fill='gray')
+        self.graph_canvas.create_line(margin_left, height - margin_bottom,
+                                       width - margin_right, height - margin_bottom, fill='gray')
+        self.graph_canvas.create_line(margin_left, height - margin_bottom,
+                                       margin_left, margin_top, fill='gray')
 
-        # Draw scale labels
-        self.graph_canvas.create_text(margin - 5, height - margin,
+        # Draw Y-axis scale labels
+        self.graph_canvas.create_text(margin_left - 5, height - margin_bottom,
                                        text="0", anchor='e', font=('TkDefaultFont', 8))
-        self.graph_canvas.create_text(margin - 5, 10,
+        self.graph_canvas.create_text(margin_left - 5, margin_top,
                                        text=str(max_val), anchor='e', font=('TkDefaultFont', 8))
+        # Middle Y label
+        self.graph_canvas.create_text(margin_left - 5, margin_top + graph_height // 2,
+                                       text=str(max_val // 2), anchor='e', font=('TkDefaultFont', 8))
+
+        # Draw X-axis labels (turn numbers in 5-turn increments)
+        if last_turn > first_turn:
+            # Find first turn that's a multiple of 5
+            start_label = ((first_turn // 5) + 1) * 5
+            for turn_label in range(start_label, last_turn + 1, 5):
+                # Calculate x position for this turn
+                turn_index = turn_label - first_turn
+                if turn_index >= 0 and turn_index <= (last_turn - first_turn):
+                    x = margin_left + (turn_index / max(1, last_turn - first_turn)) * graph_width
+                    self.graph_canvas.create_text(x, height - margin_bottom + 12,
+                                                   text=str(turn_label), anchor='n',
+                                                   font=('TkDefaultFont', 8))
+                    # Small tick mark
+                    self.graph_canvas.create_line(x, height - margin_bottom,
+                                                   x, height - margin_bottom + 3, fill='gray')
+
+        # X-axis label
+        self.graph_canvas.create_text(margin_left + graph_width // 2, height - 5,
+                                       text="Turn", anchor='n', font=('TkDefaultFont', 8))
 
         # Draw lines for each category
         colors = {'Virion': 'purple', 'RNA': 'green', 'DNA': 'blue', 'Protein': 'orange'}
@@ -1320,8 +1358,8 @@ class PlayModule(tk.Toplevel):
         for category, color in colors.items():
             points = []
             for i, (turn, counts) in enumerate(history):
-                x = margin + (i / max(1, len(history) - 1)) * graph_width
-                y = height - margin - (counts.get(category, 0) / max_val) * graph_height
+                x = margin_left + (i / max(1, len(history) - 1)) * graph_width
+                y = height - margin_bottom - (counts.get(category, 0) / max_val) * graph_height
                 points.append((x, y))
 
             if len(points) >= 2:
