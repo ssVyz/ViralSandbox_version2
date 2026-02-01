@@ -8,7 +8,7 @@ from typing import Optional, Callable
 from database import GameDatabase
 from models import (
     ViralEntity, Effect, Gene, Milestone,
-    EntityCategory, EntityType, CellLocation,
+    EntityCategory, CellLocation,
     EffectType, MilestoneType
 )
 
@@ -167,13 +167,14 @@ class DatabaseEditor(tk.Toplevel):
         category_combo = ttk.Combobox(right_frame, textvariable=self.entity_category_var,
                                        values=[c.value for c in EntityCategory], state='readonly', width=37)
         category_combo.grid(row=row, column=1, sticky='w', pady=2)
+        category_combo.bind('<<ComboboxSelected>>', self._on_entity_category_change)
 
         row += 1
         ttk.Label(right_frame, text="Type:").grid(row=row, column=0, sticky='w', pady=2)
         self.entity_type_var = tk.StringVar()
-        type_combo = ttk.Combobox(right_frame, textvariable=self.entity_type_var,
-                                   values=[t.value for t in EntityType], state='readonly', width=37)
-        type_combo.grid(row=row, column=1, sticky='w', pady=2)
+        self.entity_type_label = ttk.Label(right_frame, text="(Auto-set for proteins)")
+        self.entity_type_label.grid(row=row, column=1, sticky='w', pady=2)
+        self.entity_type_label.grid_remove()  # Hidden by default
 
         row += 1
         ttk.Label(right_frame, text="Description:").grid(row=row, column=0, sticky='nw', pady=2)
@@ -200,6 +201,20 @@ class DatabaseEditor(tk.Toplevel):
                 protected = "[*] " if self.database.is_protected_entity(entity.id) else ""
                 self.entity_listbox.insert(tk.END, f"{protected}[{entity.id}] {entity.name} ({entity.category})")
 
+    def _on_entity_category_change(self, event=None):
+        """Handle entity category change - show/hide type field for proteins."""
+        category = self.entity_category_var.get()
+        if category == EntityCategory.PROTEIN.value:
+            # For proteins, show label indicating type is auto-set
+            name = self.entity_name_var.get().strip()
+            self.entity_type_var.set(name if name else "(will use entity name)")
+            self.entity_type_label.config(text=f"Type: {name if name else '(will use entity name)'}")
+            self.entity_type_label.grid()
+        else:
+            # For non-proteins, type is always "None"
+            self.entity_type_var.set("None")
+            self.entity_type_label.grid_remove()
+
     def _on_entity_select(self):
         """Handle entity selection."""
         selection = self.entity_listbox.curselection()
@@ -219,6 +234,8 @@ class DatabaseEditor(tk.Toplevel):
             self.entity_desc_text.delete('1.0', tk.END)
             self.entity_desc_text.insert('1.0', entity.description)
             self.current_selection = ('entity', entity.id)
+            # Update type field display based on category
+            self._on_entity_category_change()
 
     def _new_entity(self):
         """Create a new entity."""
@@ -233,6 +250,7 @@ class DatabaseEditor(tk.Toplevel):
         self.entity_category_var.set("")
         self.entity_type_var.set("None")
         self.entity_desc_text.delete('1.0', tk.END)
+        self.entity_type_label.grid_remove()
         self.current_selection = None
 
     def _save_entity(self):
@@ -389,29 +407,25 @@ class DatabaseEditor(tk.Toplevel):
         ttk.Entry(self.transition_frame, textvariable=self.effect_genome_type_var, width=20).grid(
             row=3, column=1, sticky='w', pady=2)
 
-        ttk.Label(self.transition_frame, text="Requires Translation Mode:").grid(row=4, column=0, sticky='w', pady=2, padx=5)
-        self.effect_translation_var = tk.StringVar()
-        ttk.Entry(self.transition_frame, textvariable=self.effect_translation_var, width=20).grid(
-            row=4, column=1, sticky='w', pady=2)
-
         # Inputs
-        ttk.Label(self.transition_frame, text="Inputs:").grid(row=5, column=0, sticky='nw', pady=2, padx=5)
+        ttk.Label(self.transition_frame, text="Inputs:").grid(row=4, column=0, sticky='nw', pady=2, padx=5)
         self.inputs_listbox = tk.Listbox(self.transition_frame, height=4, width=50)
-        self.inputs_listbox.grid(row=5, column=1, columnspan=2, sticky='w', pady=2)
+        self.inputs_listbox.grid(row=4, column=1, columnspan=2, sticky='w', pady=2)
 
         input_btn_frame = ttk.Frame(self.transition_frame)
-        input_btn_frame.grid(row=6, column=1, sticky='w')
+        input_btn_frame.grid(row=5, column=1, sticky='w')
         ttk.Button(input_btn_frame, text="Add Input", command=self._add_input).pack(side=tk.LEFT, padx=2)
         ttk.Button(input_btn_frame, text="Remove Input", command=self._remove_input).pack(side=tk.LEFT, padx=2)
 
         # Outputs
-        ttk.Label(self.transition_frame, text="Outputs:").grid(row=7, column=0, sticky='nw', pady=2, padx=5)
+        ttk.Label(self.transition_frame, text="Outputs:").grid(row=6, column=0, sticky='nw', pady=2, padx=5)
         self.outputs_listbox = tk.Listbox(self.transition_frame, height=4, width=50)
-        self.outputs_listbox.grid(row=7, column=1, columnspan=2, sticky='w', pady=2)
+        self.outputs_listbox.grid(row=6, column=1, columnspan=2, sticky='w', pady=2)
 
         output_btn_frame = ttk.Frame(self.transition_frame)
-        output_btn_frame.grid(row=8, column=1, sticky='w')
+        output_btn_frame.grid(row=7, column=1, sticky='w')
         ttk.Button(output_btn_frame, text="Add Output", command=self._add_output).pack(side=tk.LEFT, padx=2)
+        ttk.Button(output_btn_frame, text="Add Unpack Genome", command=self._add_unpack_genome_output).pack(side=tk.LEFT, padx=2)
         ttk.Button(output_btn_frame, text="Remove Output", command=self._remove_output).pack(side=tk.LEFT, padx=2)
 
         # Modify transition fields
@@ -539,7 +553,6 @@ class DatabaseEditor(tk.Toplevel):
         self.effect_interferon_var.set(str(effect.interferon_production))
         self.effect_antibody_var.set(str(effect.antibody_response))
         self.effect_genome_type_var.set(effect.requires_genome_type)
-        self.effect_translation_var.set(effect.requires_translation_mode)
 
         self.inputs_listbox.delete(0, tk.END)
         self._current_inputs = list(effect.inputs)  # Copy the inputs list
@@ -553,10 +566,14 @@ class DatabaseEditor(tk.Toplevel):
         self.outputs_listbox.delete(0, tk.END)
         self._current_outputs = list(effect.outputs)  # Copy the outputs list
         for out in effect.outputs:
-            entity = self.database.get_entity(out.get('entity_id', 0))
-            name = entity.name if entity else f"ID:{out.get('entity_id')}"
-            self.outputs_listbox.insert(tk.END,
-                f"{out.get('amount', 1)}x {name} @ {out.get('location', 'Same')}")
+            if out.get('is_unpack_genome', False):
+                self.outputs_listbox.insert(tk.END,
+                    f"[UNPACK GENOME] @ {out.get('location', 'Cytosol')}")
+            else:
+                entity = self.database.get_entity(out.get('entity_id', 0))
+                name = entity.name if entity else f"ID:{out.get('entity_id')}"
+                self.outputs_listbox.insert(tk.END,
+                    f"{out.get('amount', 1)}x {name} @ {out.get('location', 'Same')}")
 
         # Modify fields
         self.modify_target_id_var.set(str(effect.target_effect_id) if effect.target_effect_id else "")
@@ -591,7 +608,6 @@ class DatabaseEditor(tk.Toplevel):
         self.effect_interferon_var.set("0.0")
         self.effect_antibody_var.set("0.0")
         self.effect_genome_type_var.set("")
-        self.effect_translation_var.set("")
         self.inputs_listbox.delete(0, tk.END)
         self.outputs_listbox.delete(0, tk.END)
         self._current_inputs = []
@@ -648,6 +664,17 @@ class DatabaseEditor(tk.Toplevel):
             self.outputs_listbox.insert(tk.END,
                 f"{dialog.result['amount']}x {name} @ {dialog.result['location']}")
 
+    def _add_unpack_genome_output(self):
+        """Add an 'Unpack genome' output to the current effect."""
+        dialog = UnpackGenomeDialog(self)
+        self.wait_window(dialog)
+        if dialog.result:
+            if not hasattr(self, '_current_outputs'):
+                self._current_outputs = []
+            self._current_outputs.append(dialog.result)
+            self.outputs_listbox.insert(tk.END,
+                f"[UNPACK GENOME] @ {dialog.result['location']}")
+
     def _remove_output(self):
         """Remove selected output."""
         selection = self.outputs_listbox.curselection()
@@ -689,7 +716,6 @@ class DatabaseEditor(tk.Toplevel):
             interferon_production=float(self.effect_interferon_var.get() or 0),
             antibody_response=float(self.effect_antibody_var.get() or 0),
             requires_genome_type=self.effect_genome_type_var.get(),
-            requires_translation_mode=self.effect_translation_var.get(),
             target_effect_id=int(self.modify_target_id_var.get()) if self.modify_target_id_var.get() else None,
             target_category=self.modify_target_cat_var.get(),
             chance_modifier=float(self.modify_chance_var.get() or 0),
@@ -789,9 +815,9 @@ class DatabaseEditor(tk.Toplevel):
         row += 1
         ttk.Label(right_frame, text="Type (enables):").grid(row=row, column=0, sticky='w', pady=2)
         self.gene_type_var = tk.StringVar()
-        ttk.Combobox(right_frame, textvariable=self.gene_type_var,
-                     values=[t.value for t in EntityType], state='readonly', width=37).grid(
-            row=row, column=1, sticky='w', pady=2)
+        self.gene_type_combo = ttk.Combobox(right_frame, textvariable=self.gene_type_var,
+                     values=["None"], state='readonly', width=37)
+        self.gene_type_combo.grid(row=row, column=1, sticky='w', pady=2)
 
         row += 1
         ttk.Label(right_frame, text="Description:").grid(row=row, column=0, sticky='nw', pady=2)
@@ -823,8 +849,17 @@ class DatabaseEditor(tk.Toplevel):
 
         return tab
 
+    def _update_gene_type_values(self):
+        """Update the gene type combobox with current protein entities."""
+        protein_entities = self.database.get_protein_entities()
+        values = ["None"] + [f"[{e.id}] {e.name}" for e in sorted(protein_entities, key=lambda e: e.id)]
+        self.gene_type_combo['values'] = values
+
     def _filter_genes(self):
         """Filter the gene list based on search."""
+        # Update gene type dropdown values
+        self._update_gene_type_values()
+
         search = self.gene_search_var.get().lower()
         self.gene_listbox.delete(0, tk.END)
         for gene in sorted(self.database.genes.values(), key=lambda g: g.id):
@@ -851,7 +886,17 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_set_var.set(gene.set_name)
         self.gene_cost_var.set(str(gene.install_cost))
         self.gene_length_var.set(str(gene.length))
-        self.gene_type_var.set(gene.gene_type)
+
+        # Set gene type based on entity ID
+        if gene.gene_type_entity_id is not None:
+            entity = self.database.get_entity(gene.gene_type_entity_id)
+            if entity and entity.category == "Protein":
+                self.gene_type_var.set(f"[{entity.id}] {entity.name}")
+            else:
+                self.gene_type_var.set("None")
+        else:
+            self.gene_type_var.set("None")
+
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_desc_text.insert('1.0', gene.description)
 
@@ -926,13 +971,23 @@ class DatabaseEditor(tk.Toplevel):
         gene_id_str = self.gene_id_var.get()
         gene_id = int(gene_id_str) if gene_id_str else 0
 
+        # Parse gene type entity ID from selection
+        gene_type_selection = self.gene_type_var.get()
+        gene_type_entity_id = None
+        if gene_type_selection and gene_type_selection != "None":
+            try:
+                # Format is "[id] name"
+                gene_type_entity_id = int(gene_type_selection.split(']')[0][1:])
+            except (ValueError, IndexError):
+                pass
+
         gene = Gene(
             id=gene_id,
             name=name,
             set_name=set_name,
             install_cost=cost,
             length=length,
-            gene_type=self.gene_type_var.get() or "None",
+            gene_type_entity_id=gene_type_entity_id,
             effect_ids=list(self._current_gene_effects),
             description=self.gene_desc_text.get('1.0', tk.END).strip()
         )
@@ -1440,4 +1495,53 @@ class SelectEffectDialog(tk.Toplevel):
 
         text = self.listbox.get(selection[0])
         self.result = int(text.split(']')[0][1:])
+        self.destroy()
+
+
+class UnpackGenomeDialog(tk.Toplevel):
+    """Dialog for adding an 'Unpack genome' output to a transition."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Add Unpack Genome Output")
+        self.result = None
+
+        self.transient(parent)
+        self.grab_set()
+
+        self._create_ui()
+        self.geometry("300x150")
+
+    def _create_ui(self):
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text="This output will spawn the virus's genome\nentity when the transition fires.",
+                  wraplength=250).grid(row=0, column=0, columnspan=2, pady=10)
+
+        # Location
+        ttk.Label(frame, text="Location:").grid(row=1, column=0, sticky='w', pady=5)
+        self.location_var = tk.StringVar()
+        ttk.Combobox(frame, textvariable=self.location_var,
+                     values=[loc.value for loc in CellLocation], state='readonly', width=17).grid(
+            row=1, column=1, sticky='w', pady=5)
+
+        # Buttons
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=10)
+        ttk.Button(btn_frame, text="OK", command=self._ok).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=5)
+
+    def _ok(self):
+        location = self.location_var.get()
+        if not location:
+            messagebox.showerror("Error", "Please select a location.")
+            return
+
+        self.result = {
+            'entity_id': 0,  # Not used for unpack genome
+            'amount': 1,  # Will spawn all genome entities
+            'location': location,
+            'is_unpack_genome': True
+        }
         self.destroy()

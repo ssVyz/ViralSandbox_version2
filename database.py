@@ -14,7 +14,16 @@ class GameDatabase:
     # Predefined entity IDs that cannot be deleted
     ENVELOPED_VIRION_ID = 1
     UNENVELOPED_VIRION_ID = 2
-    PROTECTED_ENTITY_IDS = {ENVELOPED_VIRION_ID, UNENVELOPED_VIRION_ID}
+    POSITIVE_SENSE_RNA_ID = 3
+    NEGATIVE_SENSE_RNA_ID = 4
+    SSDNA_ID = 5
+    DSDNA_ID = 6
+    POLYPROTEIN_ID = 7
+    PROTECTED_ENTITY_IDS = {
+        ENVELOPED_VIRION_ID, UNENVELOPED_VIRION_ID,
+        POSITIVE_SENSE_RNA_ID, NEGATIVE_SENSE_RNA_ID,
+        SSDNA_ID, DSDNA_ID, POLYPROTEIN_ID
+    }
 
     def __init__(self):
         self.entities: dict[int, ViralEntity] = {}
@@ -25,7 +34,7 @@ class GameDatabase:
         self.modified: bool = False
 
         # ID counters for new objects
-        self._next_entity_id = 3  # Start after predefined entities
+        self._next_entity_id = 8  # Start after predefined entities (IDs 1-7)
         self._next_effect_id = 1
         self._next_gene_id = 1
         self._next_milestone_id = 1
@@ -46,8 +55,48 @@ class GameDatabase:
             entity_type="None",
             description="A naked virus particle without an envelope. This is a starter entity."
         )
+        positive_rna = ViralEntity(
+            id=self.POSITIVE_SENSE_RNA_ID,
+            name="Positive-sense RNA",
+            category="RNA",
+            entity_type="None",
+            description="Positive-sense single-stranded RNA genome. Can be directly translated into proteins."
+        )
+        negative_rna = ViralEntity(
+            id=self.NEGATIVE_SENSE_RNA_ID,
+            name="Negative-sense RNA",
+            category="RNA",
+            entity_type="None",
+            description="Negative-sense single-stranded RNA genome. Must be transcribed before translation."
+        )
+        ssdna = ViralEntity(
+            id=self.SSDNA_ID,
+            name="ssDNA",
+            category="DNA",
+            entity_type="None",
+            description="Single-stranded DNA genome."
+        )
+        dsdna = ViralEntity(
+            id=self.DSDNA_ID,
+            name="dsDNA",
+            category="DNA",
+            entity_type="None",
+            description="Double-stranded DNA genome."
+        )
+        polyprotein = ViralEntity(
+            id=self.POLYPROTEIN_ID,
+            name="Polyprotein",
+            category="Protein",
+            entity_type="Polyprotein",  # Proteins have their own name as type
+            description="A large precursor protein that is cleaved into functional viral proteins."
+        )
         self.entities[self.ENVELOPED_VIRION_ID] = enveloped
         self.entities[self.UNENVELOPED_VIRION_ID] = unenveloped
+        self.entities[self.POSITIVE_SENSE_RNA_ID] = positive_rna
+        self.entities[self.NEGATIVE_SENSE_RNA_ID] = negative_rna
+        self.entities[self.SSDNA_ID] = ssdna
+        self.entities[self.DSDNA_ID] = dsdna
+        self.entities[self.POLYPROTEIN_ID] = polyprotein
 
     def new_database(self):
         """Create a new database with predefined entities."""
@@ -57,7 +106,7 @@ class GameDatabase:
         self.milestones.clear()
         self.filepath = None
         self.modified = False
-        self._next_entity_id = 3  # Start after predefined entities
+        self._next_entity_id = 8  # Start after predefined entities (IDs 1-7)
         self._next_effect_id = 1
         self._next_gene_id = 1
         self._next_milestone_id = 1
@@ -98,6 +147,14 @@ class GameDatabase:
                 milestone = Milestone.from_dict(milestone_data)
                 self.milestones[milestone.id] = milestone
                 self._next_milestone_id = max(self._next_milestone_id, milestone.id + 1)
+
+            # Ensure protein entities have correct entity_type (their own name)
+            for entity in self.entities.values():
+                if entity.category == "Protein":
+                    entity.entity_type = entity.name
+
+            # Validate gene types - clear any that reference invalid entities
+            self.validate_gene_types()
 
             self.modified = False
             return True
@@ -140,6 +197,11 @@ class GameDatabase:
         if entity.id == 0:
             entity.id = self._next_entity_id
             self._next_entity_id += 1
+
+        # Auto-set entity_type for proteins to their own name
+        if entity.category == "Protein":
+            entity.entity_type = entity.name
+
         self.entities[entity.id] = entity
         self.modified = True
         return entity.id
@@ -147,6 +209,18 @@ class GameDatabase:
     def update_entity(self, entity: ViralEntity):
         """Update an existing entity."""
         if entity.id in self.entities:
+            old_entity = self.entities[entity.id]
+
+            # Auto-set entity_type for proteins to their own name
+            if entity.category == "Protein":
+                entity.entity_type = entity.name
+            else:
+                entity.entity_type = "None"
+
+            # If category changed FROM Protein to something else, clear gene types
+            if old_entity.category == "Protein" and entity.category != "Protein":
+                self._clear_gene_types_for_entity(entity.id)
+
             self.entities[entity.id] = entity
             self.modified = True
 
@@ -155,10 +229,22 @@ class GameDatabase:
         if entity_id in self.PROTECTED_ENTITY_IDS:
             return False
         if entity_id in self.entities:
+            entity = self.entities[entity_id]
+
+            # If deleting a protein, clear any gene types referencing it
+            if entity.category == "Protein":
+                self._clear_gene_types_for_entity(entity_id)
+
             del self.entities[entity_id]
             self.modified = True
             return True
         return False
+
+    def _clear_gene_types_for_entity(self, entity_id: int):
+        """Clear gene_type_entity_id for all genes referencing the given entity."""
+        for gene in self.genes.values():
+            if gene.gene_type_entity_id == entity_id:
+                gene.gene_type_entity_id = None
 
     def is_protected_entity(self, entity_id: int) -> bool:
         """Check if an entity is protected (cannot be deleted)."""
@@ -281,3 +367,25 @@ class GameDatabase:
     def get_global_effects(self) -> list[Effect]:
         """Get all global effects."""
         return [e for e in self.effects.values() if e.is_global]
+
+    def get_protein_entities(self) -> list[ViralEntity]:
+        """Get all entities with category 'Protein'. These serve as available types for genes."""
+        return [e for e in self.entities.values() if e.category == "Protein"]
+
+    def get_gene_type_name(self, gene: Gene) -> str:
+        """Get the display name for a gene's type."""
+        if gene.gene_type_entity_id is None:
+            return "None"
+        entity = self.get_entity(gene.gene_type_entity_id)
+        if entity and entity.category == "Protein":
+            return entity.name
+        return "None"
+
+    def validate_gene_types(self):
+        """Validate all gene types and clear any that reference non-existent or non-protein entities."""
+        for gene in self.genes.values():
+            if gene.gene_type_entity_id is not None:
+                entity = self.get_entity(gene.gene_type_entity_id)
+                if entity is None or entity.category != "Protein":
+                    gene.gene_type_entity_id = None
+                    self.modified = True

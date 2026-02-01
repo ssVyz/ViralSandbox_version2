@@ -130,8 +130,8 @@ class BuilderModule(tk.Toplevel):
                                    font=('Courier', 16, 'bold'))
         genome_display.pack(pady=10)
 
-        # Genome visualization canvas
-        self.genome_canvas = tk.Canvas(visual_frame, height=60, bg='white')
+        # Genome visualization canvas (taller to accommodate ORF indicators)
+        self.genome_canvas = tk.Canvas(visual_frame, height=100, bg='white')
         self.genome_canvas.pack(fill=tk.X, padx=20, pady=5)
 
         # Right side - configuration options
@@ -170,8 +170,6 @@ class BuilderModule(tk.Toplevel):
                        value="positive", command=self._on_config_change).pack(side=tk.LEFT)
         ttk.Radiobutton(self.polarity_frame, text="Negative (-)", variable=self.polarity_var,
                        value="negative", command=self._on_config_change).pack(side=tk.LEFT)
-        ttk.Radiobutton(self.polarity_frame, text="Ambisense", variable=self.polarity_var,
-                       value="ambisense", command=self._on_config_change).pack(side=tk.LEFT)
 
         # Virion type
         row += 1
@@ -183,14 +181,6 @@ class BuilderModule(tk.Toplevel):
                        value="Enveloped", command=self._on_config_change).pack(side=tk.LEFT)
         ttk.Radiobutton(virion_frame, text="Unenveloped", variable=self.virion_type_var,
                        value="Unenveloped", command=self._on_config_change).pack(side=tk.LEFT)
-
-        # Translation mode
-        row += 1
-        ttk.Label(options_frame, text="Translation Mode:").grid(row=row, column=0, sticky='w', pady=2)
-        self.translation_var = tk.StringVar(value="Standard")
-        ttk.Combobox(options_frame, textvariable=self.translation_var,
-                    values=["Standard", "Cap-dependent", "IRES-mediated", "Cap-snatching"],
-                    state='readonly', width=15).grid(row=row, column=1, sticky='w', pady=2)
 
         # Lock config button
         row += 1
@@ -209,7 +199,15 @@ class BuilderModule(tk.Toplevel):
 
     def _create_available_panel(self, parent):
         """Create the available genes panel with tree view."""
-        # Scrollable frame
+        # Buttons at bottom - pack FIRST so they always show
+        btn_frame = ttk.Frame(parent)
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+
+        self.install_btn = ttk.Button(btn_frame, text="Install Gene ->",
+                                     command=self._install_gene)
+        self.install_btn.pack(side=tk.LEFT, padx=5)
+
+        # Scrollable frame - pack AFTER buttons so it fills remaining space
         canvas = tk.Canvas(parent)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         self.available_frame = ttk.Frame(canvas)
@@ -227,17 +225,32 @@ class BuilderModule(tk.Toplevel):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
-        # Buttons at bottom
+    def _create_installed_panel(self, parent):
+        """Create the installed genes panel with tree view."""
+        # Buttons at bottom - pack FIRST so they always show
         btn_frame = ttk.Frame(parent)
         btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
-        self.install_btn = ttk.Button(btn_frame, text="Install Gene ->",
-                                     command=self._install_gene)
-        self.install_btn.pack(side=tk.LEFT, padx=5)
+        self.remove_btn = ttk.Button(btn_frame, text="<- Remove",
+                                    command=self._remove_item)
+        self.remove_btn.pack(side=tk.LEFT, padx=5)
 
-    def _create_installed_panel(self, parent):
-        """Create the installed genes panel with tree view."""
-        # Scrollable frame
+        # Add ORF button
+        self.add_orf_btn = ttk.Button(btn_frame, text="+ Add ORF",
+                                      command=self._add_orf)
+        self.add_orf_btn.pack(side=tk.LEFT, padx=5)
+
+        # Ordering buttons
+        ttk.Separator(btn_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        ttk.Label(btn_frame, text="Order:").pack(side=tk.LEFT, padx=2)
+        self.move_up_btn = ttk.Button(btn_frame, text="Up", width=5,
+                                      command=self._move_item_up)
+        self.move_up_btn.pack(side=tk.LEFT, padx=2)
+        self.move_down_btn = ttk.Button(btn_frame, text="Down", width=5,
+                                        command=self._move_item_down)
+        self.move_down_btn.pack(side=tk.LEFT, padx=2)
+
+        # Scrollable frame - pack AFTER buttons so it fills remaining space
         canvas = tk.Canvas(parent)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         self.installed_frame = ttk.Frame(canvas)
@@ -249,24 +262,6 @@ class BuilderModule(tk.Toplevel):
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Buttons at bottom
-        btn_frame = ttk.Frame(parent)
-        btn_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
-
-        self.remove_btn = ttk.Button(btn_frame, text="<- Remove Gene",
-                                    command=self._remove_gene)
-        self.remove_btn.pack(side=tk.LEFT, padx=5)
-
-        # Ordering buttons
-        ttk.Separator(btn_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
-        ttk.Label(btn_frame, text="Order:").pack(side=tk.LEFT, padx=2)
-        self.move_up_btn = ttk.Button(btn_frame, text="Up", width=5,
-                                      command=self._move_gene_up)
-        self.move_up_btn.pack(side=tk.LEFT, padx=2)
-        self.move_down_btn = ttk.Button(btn_frame, text="Down", width=5,
-                                        command=self._move_gene_down)
-        self.move_down_btn.pack(side=tk.LEFT, padx=2)
 
     def _create_details_panel(self, parent):
         """Create the details panel."""
@@ -305,7 +300,6 @@ class BuilderModule(tk.Toplevel):
         self.strandedness_var.set(config.strandedness)
         self.polarity_var.set(config.polarity)
         self.virion_type_var.set(config.virion_type)
-        self.translation_var.set(config.translation_mode)
 
         # Update polarity visibility
         self._update_polarity_state()
@@ -334,7 +328,6 @@ class BuilderModule(tk.Toplevel):
         self.game_state.pending_config.strandedness = self.strandedness_var.get()
         self.game_state.pending_config.polarity = self.polarity_var.get()
         self.game_state.pending_config.virion_type = self.virion_type_var.get()
-        self.game_state.pending_config.translation_mode = self.translation_var.get()
 
         self._update_config_ui()
         self._update_genome_visual()
@@ -351,7 +344,6 @@ class BuilderModule(tk.Toplevel):
         self.game_state.pending_config.strandedness = self.strandedness_var.get()
         self.game_state.pending_config.polarity = self.polarity_var.get()
         self.game_state.pending_config.virion_type = self.virion_type_var.get()
-        self.game_state.pending_config.translation_mode = self.translation_var.get()
 
         success, message = self.game_state.lock_config()
         if success:
@@ -384,13 +376,14 @@ class BuilderModule(tk.Toplevel):
         if width < 10:
             width = 400
 
-        height = 60
-        center_y = height // 2
+        height = 100
+        orf_area_height = 30  # Space for ORF indicators at top
+        genome_center_y = orf_area_height + 32  # Center of genome area
 
         # If no genes installed, show placeholder message
         if total_length == 0:
             self.genome_canvas.create_text(
-                width // 2, center_y,
+                width // 2, height // 2,
                 text="Install genes to see genome structure",
                 font=('TkDefaultFont', 11, 'italic'),
                 fill='#888888'
@@ -404,12 +397,12 @@ class BuilderModule(tk.Toplevel):
 
         # Draw 5' and 3' labels
         self.genome_canvas.create_text(
-            left_margin - 5, center_y,
+            left_margin - 5, genome_center_y,
             text="5'", font=('TkDefaultFont', 12, 'bold'),
             fill='#333333', anchor='e'
         )
         self.genome_canvas.create_text(
-            width - right_margin + 5, center_y,
+            width - right_margin + 5, genome_center_y,
             text="3'", font=('TkDefaultFont', 12, 'bold'),
             fill='#333333', anchor='w'
         )
@@ -420,20 +413,20 @@ class BuilderModule(tk.Toplevel):
         if config.strandedness == "double":
             # Double strand backbone
             self.genome_canvas.create_line(
-                left_margin, center_y - 12,
-                width - right_margin, center_y - 12,
+                left_margin, genome_center_y - 12,
+                width - right_margin, genome_center_y - 12,
                 fill=strand_color, width=3
             )
             self.genome_canvas.create_line(
-                left_margin, center_y + 12,
-                width - right_margin, center_y + 12,
+                left_margin, genome_center_y + 12,
+                width - right_margin, genome_center_y + 12,
                 fill=strand_color, width=3
             )
         else:
             # Single strand backbone
             self.genome_canvas.create_line(
-                left_margin, center_y,
-                width - right_margin, center_y,
+                left_margin, genome_center_y,
+                width - right_margin, genome_center_y,
                 fill=strand_color, width=3
             )
 
@@ -441,67 +434,128 @@ class BuilderModule(tk.Toplevel):
             polarity_x = width - right_margin + 25
             if config.polarity == "positive":
                 self.genome_canvas.create_text(
-                    polarity_x, center_y, text="(+)",
+                    polarity_x, genome_center_y, text="(+)",
                     font=('TkDefaultFont', 10, 'bold'), fill='green'
                 )
-            elif config.polarity == "negative":
+            else:  # negative
                 self.genome_canvas.create_text(
-                    polarity_x, center_y, text="(-)",
+                    polarity_x, genome_center_y, text="(-)",
                     font=('TkDefaultFont', 10, 'bold'), fill='red'
                 )
-            else:
-                self.genome_canvas.create_text(
-                    polarity_x, center_y, text="(+/-)",
-                    font=('TkDefaultFont', 9, 'bold'), fill='purple'
-                )
 
-        # Draw genes as segments - fit to available width
+        # Build gene position map (for ORF visualization)
+        # Map gene_id to (x_start, x_end, color_index)
+        gene_positions = {}
         colors = ['#FF5722', '#9C27B0', '#00BCD4', '#FFEB3B', '#E91E63',
                   '#8BC34A', '#FF9800', '#3F51B5', '#009688', '#F44336']
         x_pos = left_margin
+        color_idx = 0
 
-        for i, gene_id in enumerate(self.game_state.installed_genes):
-            gene = self.game_state.get_gene(gene_id)
-            if gene:
-                # Calculate proportional width
-                gene_width = int((gene.length / total_length) * available_width)
-                if gene_width < 10:
-                    gene_width = 10
+        for item in self.game_state.installed_genes:
+            if not self.game_state.is_orf(item):
+                gene = self.game_state.get_gene(item)
+                if gene:
+                    # Calculate proportional width
+                    gene_width = int((gene.length / total_length) * available_width)
+                    if gene_width < 10:
+                        gene_width = 10
 
-                color = colors[i % len(colors)]
+                    gene_positions[item] = (x_pos, x_pos + gene_width, color_idx)
 
-                # Check if this gene is selected
-                is_selected = (self.selected_item and
-                              self.selected_item[0] == 'gene' and
-                              self.selected_item[1] == gene_id)
-                outline_color = '#0066cc' if is_selected else 'black'
-                outline_width = 3 if is_selected else 1
+                    color = colors[color_idx % len(colors)]
 
-                if config.strandedness == "double":
-                    self.genome_canvas.create_rectangle(
-                        x_pos, center_y - 10,
-                        x_pos + gene_width, center_y + 10,
-                        fill=color, outline=outline_color, width=outline_width
-                    )
-                else:
-                    self.genome_canvas.create_rectangle(
-                        x_pos, center_y - 8,
-                        x_pos + gene_width, center_y + 8,
-                        fill=color, outline=outline_color, width=outline_width
-                    )
+                    # Check if this gene is selected
+                    is_selected = (self.selected_item and
+                                  self.selected_item[0] == 'gene' and
+                                  self.selected_item[1] == item)
+                    outline_color = '#0066cc' if is_selected else 'black'
+                    outline_width = 3 if is_selected else 1
 
-                # Add gene name label if wide enough
-                if gene_width > 40:
-                    # Truncate name if needed
-                    display_name = gene.name[:8] + "..." if len(gene.name) > 10 else gene.name
-                    self.genome_canvas.create_text(
-                        x_pos + gene_width // 2, center_y,
-                        text=display_name,
-                        font=('TkDefaultFont', 8),
-                        fill='white' if self._is_dark_color(color) else 'black'
-                    )
+                    if config.strandedness == "double":
+                        self.genome_canvas.create_rectangle(
+                            x_pos, genome_center_y - 10,
+                            x_pos + gene_width, genome_center_y + 10,
+                            fill=color, outline=outline_color, width=outline_width
+                        )
+                    else:
+                        self.genome_canvas.create_rectangle(
+                            x_pos, genome_center_y - 8,
+                            x_pos + gene_width, genome_center_y + 8,
+                            fill=color, outline=outline_color, width=outline_width
+                        )
 
-                x_pos += gene_width
+                    # Add gene name label if wide enough
+                    if gene_width > 40:
+                        # Truncate name if needed
+                        display_name = gene.name[:8] + "..." if len(gene.name) > 10 else gene.name
+                        self.genome_canvas.create_text(
+                            x_pos + gene_width // 2, genome_center_y,
+                            text=display_name,
+                            font=('TkDefaultFont', 8),
+                            fill='white' if self._is_dark_color(color) else 'black'
+                        )
+
+                    x_pos += gene_width
+                    color_idx += 1
+
+        # Draw ORF indicators above the genome
+        orf_structure = self.game_state.get_orf_structure()
+        orf_colors = ['#cc5500', '#0055cc', '#00cc55', '#cc0055', '#5500cc']
+
+        for orf_idx, orf_info in enumerate(orf_structure):
+            orf_name = orf_info['orf']
+            orf_genes = orf_info['genes']
+
+            if not orf_genes:
+                continue  # Skip ORFs with no genes
+
+            # Find the x positions for this ORF's genes
+            orf_x_start = None
+            orf_x_end = None
+            for gene_id in orf_genes:
+                if gene_id in gene_positions:
+                    x_start, x_end, _ = gene_positions[gene_id]
+                    if orf_x_start is None or x_start < orf_x_start:
+                        orf_x_start = x_start
+                    if orf_x_end is None or x_end > orf_x_end:
+                        orf_x_end = x_end
+
+            if orf_x_start is not None and orf_x_end is not None:
+                orf_color = orf_colors[orf_idx % len(orf_colors)]
+
+                # Check if this ORF is selected
+                is_orf_selected = (self.selected_item and
+                                   self.selected_item[0] == 'orf' and
+                                   self.selected_item[1] == orf_name)
+                line_width = 4 if is_orf_selected else 2
+
+                # Draw ORF bracket/span
+                orf_y = 12 + (orf_idx % 2) * 12  # Alternate y positions to avoid overlap
+                self.genome_canvas.create_line(
+                    orf_x_start, orf_y,
+                    orf_x_end, orf_y,
+                    fill=orf_color, width=line_width
+                )
+                # Draw end caps
+                self.genome_canvas.create_line(
+                    orf_x_start, orf_y - 4,
+                    orf_x_start, orf_y + 4,
+                    fill=orf_color, width=line_width
+                )
+                self.genome_canvas.create_line(
+                    orf_x_end, orf_y - 4,
+                    orf_x_end, orf_y + 4,
+                    fill=orf_color, width=line_width
+                )
+
+                # Draw ORF label
+                label_x = (orf_x_start + orf_x_end) // 2
+                self.genome_canvas.create_text(
+                    label_x, orf_y - 8,
+                    text=orf_name,
+                    font=('TkDefaultFont', 8, 'bold'),
+                    fill=orf_color
+                )
 
         # Draw length indicator below
         self.genome_canvas.create_text(
@@ -537,10 +591,13 @@ class BuilderModule(tk.Toplevel):
         for widget in self.installed_frame.winfo_children():
             widget.destroy()
 
-        for gene_id in self.game_state.installed_genes:
-            gene = self.game_state.get_gene(gene_id)
-            if gene:
-                self._create_gene_entry(self.installed_frame, gene, 'installed')
+        for item in self.game_state.installed_genes:
+            if self.game_state.is_orf(item):
+                self._create_orf_entry(self.installed_frame, item)
+            else:
+                gene = self.game_state.get_gene(item)
+                if gene:
+                    self._create_gene_entry(self.installed_frame, gene, 'installed')
 
     def _create_gene_entry(self, parent, gene: Gene, panel: str):
         """Create a gene entry with expandable effects."""
@@ -610,6 +667,93 @@ class BuilderModule(tk.Toplevel):
                     effect_label.pack(side=tk.LEFT, padx=5)
                     effect_label.bind("<Button-1>", lambda e, ef=effect: self._select_effect(ef))
 
+    def _create_orf_entry(self, parent, orf_name: str):
+        """Create an ORF entry in the installed list."""
+        # Check if this ORF is selected
+        is_selected = (self.selected_item and
+                       self.selected_item[0] == 'orf' and
+                       self.selected_item[1] == orf_name)
+
+        # ORF frame with selection highlighting
+        orf_frame = tk.Frame(parent)
+        if is_selected:
+            orf_frame.configure(bg='#ffe6cc', relief=tk.SOLID, borderwidth=1)
+        else:
+            orf_frame.configure(bg='#fff3e6')
+        orf_frame.pack(fill=tk.X, padx=2, pady=1)
+
+        # ORF indicator
+        orf_indicator = tk.Label(orf_frame, text="[ORF]", font=('TkDefaultFont', 9, 'bold'),
+                                fg='#cc5500', bg=orf_frame.cget('bg'))
+        orf_indicator.pack(side=tk.LEFT, padx=2)
+
+        # ORF name
+        orf_label = tk.Label(orf_frame, text=orf_name, cursor="hand2",
+                            fg='#cc5500', bg=orf_frame.cget('bg'),
+                            font=('TkDefaultFont', 10, 'bold'))
+        orf_label.pack(side=tk.LEFT, padx=5)
+        orf_label.bind("<Button-1>", lambda e, name=orf_name: self._select_orf(name))
+
+        # Show genes covered by this ORF
+        orf_structure = self.game_state.get_orf_structure()
+        genes_under_orf = []
+        for orf_info in orf_structure:
+            if orf_info['orf'] == orf_name:
+                genes_under_orf = orf_info['genes']
+                break
+
+        if genes_under_orf:
+            count_label = tk.Label(orf_frame, text=f"({len(genes_under_orf)} genes)",
+                                  fg='#888888', bg=orf_frame.cget('bg'),
+                                  font=('TkDefaultFont', 9))
+            count_label.pack(side=tk.LEFT)
+
+    def _select_orf(self, orf_name: str):
+        """Select an ORF and show its details."""
+        self.selected_item = ('orf', orf_name)
+        self._show_orf_details(orf_name)
+        # Refresh gene lists to show selection
+        self._update_available_genes()
+        self._update_installed_genes()
+        self._update_genome_visual()
+
+    def _show_orf_details(self, orf_name: str):
+        """Show ORF details in the details panel."""
+        self.details_text.config(state=tk.NORMAL)
+        self.details_text.delete('1.0', tk.END)
+
+        self.details_text.insert(tk.END, f"{orf_name}\n", "title")
+        self.details_text.insert(tk.END, f"\nType: ", "header")
+        self.details_text.insert(tk.END, "Open Reading Frame\n", "value")
+
+        # Find genes under this ORF
+        orf_structure = self.game_state.get_orf_structure()
+        genes_under_orf = []
+        for orf_info in orf_structure:
+            if orf_info['orf'] == orf_name:
+                genes_under_orf = orf_info['genes']
+                break
+
+        self.details_text.insert(tk.END, f"\nGenes in this ORF ({len(genes_under_orf)}):\n", "header")
+        if genes_under_orf:
+            total_length = 0
+            for gene_id in genes_under_orf:
+                gene = self.game_state.get_gene(gene_id)
+                if gene:
+                    self.details_text.insert(tk.END, f"  - {gene.name} ({gene.length:,} bp)\n", "value")
+                    total_length += gene.length
+            self.details_text.insert(tk.END, f"\nTotal ORF length: ", "header")
+            self.details_text.insert(tk.END, f"{total_length:,} bp\n", "value")
+        else:
+            self.details_text.insert(tk.END, "  (No genes - ORF will be hidden in visualization)\n", "value")
+
+        self.details_text.insert(tk.END, f"\nDescription:\n", "header")
+        self.details_text.insert(tk.END, "ORFs define reading frames for protein translation. "
+                                        "All genes below this ORF (until the next ORF) will be "
+                                        "translated together.\n", "value")
+
+        self.details_text.config(state=tk.DISABLED)
+
     def _toggle_gene(self, gene_id: int, panel: str):
         """Toggle gene expansion."""
         expanded_set = self.available_expanded if panel == 'available' else self.installed_expanded
@@ -637,35 +781,96 @@ class BuilderModule(tk.Toplevel):
         self.selected_item = ('effect', effect.id)
         self._show_effect_details(effect)
 
-    def _move_gene_up(self):
-        """Move the selected installed gene up in order."""
-        if not self.selected_item or self.selected_item[0] != 'gene':
-            messagebox.showinfo("Select Gene", "Please select an installed gene first.")
+    def _move_item_up(self):
+        """Move the selected installed item (gene or ORF) up in order."""
+        if not self.selected_item:
+            messagebox.showinfo("Select Item", "Please select an installed gene or ORF first.")
             return
 
-        gene_id = self.selected_item[1]
-        if gene_id not in self.game_state.installed_genes:
-            messagebox.showinfo("Select Gene", "Please select a gene from installed genes.")
+        item_type, item_id = self.selected_item
+        if item_type not in ('gene', 'orf'):
+            messagebox.showinfo("Select Item", "Please select an installed gene or ORF.")
             return
 
-        if self.game_state.move_gene_up(gene_id):
+        if item_id not in self.game_state.installed_genes:
+            messagebox.showinfo("Select Item", "Please select an item from installed genes.")
+            return
+
+        if self.game_state.move_item_up(item_id):
             self._update_installed_genes()
             self._update_genome_visual()
 
-    def _move_gene_down(self):
-        """Move the selected installed gene down in order."""
-        if not self.selected_item or self.selected_item[0] != 'gene':
-            messagebox.showinfo("Select Gene", "Please select an installed gene first.")
+    def _move_item_down(self):
+        """Move the selected installed item (gene or ORF) down in order."""
+        if not self.selected_item:
+            messagebox.showinfo("Select Item", "Please select an installed gene or ORF first.")
             return
 
-        gene_id = self.selected_item[1]
-        if gene_id not in self.game_state.installed_genes:
-            messagebox.showinfo("Select Gene", "Please select a gene from installed genes.")
+        item_type, item_id = self.selected_item
+        if item_type not in ('gene', 'orf'):
+            messagebox.showinfo("Select Item", "Please select an installed gene or ORF.")
             return
 
-        if self.game_state.move_gene_down(gene_id):
+        if item_id not in self.game_state.installed_genes:
+            messagebox.showinfo("Select Item", "Please select an item from installed genes.")
+            return
+
+        if self.game_state.move_item_down(item_id):
             self._update_installed_genes()
             self._update_genome_visual()
+
+    def _add_orf(self):
+        """Add a new ORF to installed genes."""
+        can_install, reason = self.game_state.can_install_orf()
+        if not can_install:
+            messagebox.showerror("Cannot Add ORF", reason)
+            return
+
+        cost = self.game_state.get_orf_cost()
+        if cost > 0:
+            if not messagebox.askyesno("Add ORF",
+                    f"Add a new ORF for {cost} EP?"):
+                return
+
+        success, message = self.game_state.install_orf()
+        if success:
+            self._refresh_all()
+        else:
+            messagebox.showerror("Error", message)
+
+    def _remove_item(self):
+        """Remove the selected item (gene or ORF) from installed genes."""
+        if not self.selected_item:
+            messagebox.showinfo("Select Item", "Please select an installed gene or ORF first.")
+            return
+
+        item_type, item_id = self.selected_item
+
+        if item_type == 'orf':
+            if item_id not in self.game_state.installed_genes:
+                messagebox.showinfo("Select ORF", "Please select an ORF from installed genes.")
+                return
+
+            success, message = self.game_state.remove_orf(item_id)
+            if success:
+                self.selected_item = None
+                self._refresh_all()
+            else:
+                messagebox.showerror("Cannot Remove", message)
+
+        elif item_type == 'gene':
+            if item_id not in self.game_state.installed_genes:
+                messagebox.showinfo("Select Gene", "Please select a gene from installed genes.")
+                return
+
+            success, message = self.game_state.remove_gene(item_id)
+            if success:
+                self.selected_item = None
+                self._refresh_all()
+            else:
+                messagebox.showerror("Cannot Remove", message)
+        else:
+            messagebox.showinfo("Select Item", "Please select an installed gene or ORF.")
 
     def _show_gene_details(self, gene: Gene):
         """Show gene details in the details panel."""
@@ -680,9 +885,10 @@ class BuilderModule(tk.Toplevel):
         self.details_text.insert(tk.END, f"Length: ", "header")
         self.details_text.insert(tk.END, f"{gene.length:,} bp\n", "value")
 
-        if gene.gene_type != "None":
+        gene_type_name = self.game_state.database.get_gene_type_name(gene)
+        if gene_type_name != "None":
             self.details_text.insert(tk.END, f"Enables Type: ", "header")
-            self.details_text.insert(tk.END, f"{gene.gene_type}\n", "value")
+            self.details_text.insert(tk.END, f"{gene_type_name}\n", "value")
 
         if gene.description:
             self.details_text.insert(tk.END, f"\nDescription:\n", "header")
@@ -732,10 +938,14 @@ class BuilderModule(tk.Toplevel):
             if effect.outputs:
                 self.details_text.insert(tk.END, f"\nOutputs:\n", "header")
                 for out in effect.outputs:
-                    entity = self.game_state.database.get_entity(out.get('entity_id', 0))
-                    name = entity.name if entity else f"ID:{out.get('entity_id')}"
-                    self.details_text.insert(tk.END,
-                        f"  {out.get('amount', 1)}x {name} @ {out.get('location')}\n", "value")
+                    if out.get('is_unpack_genome', False):
+                        self.details_text.insert(tk.END,
+                            f"  Unpack genome @ {out.get('location')}\n", "value")
+                    else:
+                        entity = self.game_state.database.get_entity(out.get('entity_id', 0))
+                        name = entity.name if entity else f"ID:{out.get('entity_id')}"
+                        self.details_text.insert(tk.END,
+                            f"  {out.get('amount', 1)}x {name} @ {out.get('location')}\n", "value")
 
             if effect.interferon_production > 0:
                 self.details_text.insert(tk.END, f"\nInterferon Production: ", "header")
@@ -790,24 +1000,6 @@ class BuilderModule(tk.Toplevel):
             self._refresh_all()
         else:
             messagebox.showerror("Cannot Install", message)
-
-    def _remove_gene(self):
-        """Remove the selected gene."""
-        if not self.selected_item or self.selected_item[0] != 'gene':
-            messagebox.showinfo("Select Gene", "Please select a gene from installed genes first.")
-            return
-
-        gene_id = self.selected_item[1]
-        if gene_id not in self.game_state.installed_genes:
-            messagebox.showinfo("Select Gene", "Please select a gene from installed genes.")
-            return
-
-        success, message = self.game_state.remove_gene(gene_id)
-        if success:
-            self.selected_item = None
-            self._refresh_all()
-        else:
-            messagebox.showerror("Cannot Remove", message)
 
     def _show_blueprint(self):
         """Show the virus blueprint popup."""
@@ -899,8 +1091,15 @@ class BlueprintDialog(tk.Toplevel):
         self.text.insert(tk.END, "Virion Type: ", "header")
         self.text.insert(tk.END, f"{config.virion_type}\n", "value")
 
-        self.text.insert(tk.END, "Translation Mode: ", "header")
-        self.text.insert(tk.END, f"{config.translation_mode}\n", "value")
+        # Show genome entities
+        genome_ids = config.get_genome_entity_ids()
+        self.text.insert(tk.END, "Genome Entities: ", "header")
+        genome_names = []
+        for gid in genome_ids:
+            entity = gs.database.get_entity(gid)
+            if entity:
+                genome_names.append(entity.name)
+        self.text.insert(tk.END, f"{', '.join(genome_names)}\n", "value")
 
         self.text.insert(tk.END, "Configuration Locked: ", "header")
         self.text.insert(tk.END, f"{'Yes' if config.is_locked else 'No'}\n\n", "value")
@@ -912,12 +1111,34 @@ class BlueprintDialog(tk.Toplevel):
         self.text.insert(tk.END, "Total Length: ", "header")
         self.text.insert(tk.END, f"{gs.get_total_genome_length():,} bp\n\n", "value")
 
-        # Installed Genes
-        self.text.insert(tk.END, f"Installed Genes ({len(gs.installed_genes)}):\n", "header")
-        for gene_id in gs.installed_genes:
-            gene = gs.get_gene(gene_id)
-            if gene:
-                self.text.insert(tk.END, f"  - ({gene.set_name}) {gene.name} [{gene.length} bp]\n", "value")
+        # Count actual genes (not ORFs)
+        gene_count = sum(1 for item in gs.installed_genes if not gs.is_orf(item))
+        orf_count = gs.get_installed_orf_count()
+
+        # ORF Structure
+        orf_structure = gs.get_orf_structure()
+        if orf_structure:
+            self.text.insert(tk.END, f"ORF Structure ({len(orf_structure)} ORFs with genes):\n", "header")
+            for orf_info in orf_structure:
+                orf_name = orf_info['orf']
+                orf_genes = orf_info['genes']
+                orf_length = sum(gs.get_gene(gid).length for gid in orf_genes if gs.get_gene(gid))
+                self.text.insert(tk.END, f"\n  {orf_name} ({orf_length:,} bp):\n", "value")
+                for gene_id in orf_genes:
+                    gene = gs.get_gene(gene_id)
+                    if gene:
+                        self.text.insert(tk.END, f"    - ({gene.set_name}) {gene.name} [{gene.length:,} bp]\n", "value")
+            self.text.insert(tk.END, "\n")
+
+        # Installed Genes (flat list)
+        self.text.insert(tk.END, f"Installed Genes ({gene_count} genes, {orf_count} ORFs):\n", "header")
+        for item in gs.installed_genes:
+            if gs.is_orf(item):
+                self.text.insert(tk.END, f"  [{item}]\n", "value")
+            else:
+                gene = gs.get_gene(item)
+                if gene:
+                    self.text.insert(tk.END, f"  - ({gene.set_name}) {gene.name} [{gene.length:,} bp]\n", "value")
 
         # Enabled Types
         enabled_types = gs.get_enabled_types()

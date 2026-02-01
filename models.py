@@ -15,17 +15,6 @@ class EntityCategory(Enum):
     PROTEIN = "Protein"
 
 
-class EntityType(Enum):
-    NONE = "None"
-    POLYMERASE = "Polymerase"
-    CAPSID = "Capsid"
-    SURFACE = "Surface"
-    PROTEASE = "Protease"
-    INTEGRASE = "Integrase"
-    REGULATORY = "Regulatory"
-    COFACTOR = "Co-factor"
-
-
 class CellLocation(Enum):
     EXTRACELLULAR = "Extracellular"
     MEMBRANE = "Membrane"
@@ -63,6 +52,7 @@ class EntityOutput:
     entity_id: int
     amount: int
     location: str
+    is_unpack_genome: bool = False  # If True, spawns the genome entity instead of entity_id
 
 
 @dataclass
@@ -106,12 +96,11 @@ class Effect:
 
     # For Transition effects
     inputs: list = field(default_factory=list)  # List of EntityInput dicts
-    outputs: list = field(default_factory=list)  # List of EntityOutput dicts
+    outputs: list = field(default_factory=list)  # List of EntityOutput dicts (can include unpack_genome outputs)
     chance: float = 100.0  # Percentage 0-100
     interferon_production: float = 0.0
     antibody_response: float = 0.0
     requires_genome_type: str = ""  # For polymerase activity
-    requires_translation_mode: str = ""  # For gene expression
 
     # For Modify transition effects
     target_effect_id: Optional[int] = None
@@ -140,7 +129,6 @@ class Effect:
             "interferon_production": self.interferon_production,
             "antibody_response": self.antibody_response,
             "requires_genome_type": self.requires_genome_type,
-            "requires_translation_mode": self.requires_translation_mode,
             "target_effect_id": self.target_effect_id,
             "target_category": self.target_category,
             "chance_modifier": self.chance_modifier,
@@ -167,7 +155,6 @@ class Effect:
             interferon_production=data.get("interferon_production", 0.0),
             antibody_response=data.get("antibody_response", 0.0),
             requires_genome_type=data.get("requires_genome_type", ""),
-            requires_translation_mode=data.get("requires_translation_mode", ""),
             target_effect_id=data.get("target_effect_id"),
             target_category=data.get("target_category", ""),
             chance_modifier=data.get("chance_modifier", 0.0),
@@ -188,7 +175,7 @@ class Gene:
     set_name: str  # e.g., "HIV", "RSV", "EV"
     install_cost: int  # EP cost
     length: int  # in bp, should be multiple of 3
-    gene_type: str = "None"  # EntityType value, enables this type if set
+    gene_type_entity_id: Optional[int] = None  # Entity ID of protein type this gene enables, None for "None"
     effect_ids: list = field(default_factory=list)  # List of effect IDs
     description: str = ""
 
@@ -199,20 +186,29 @@ class Gene:
             "set_name": self.set_name,
             "install_cost": self.install_cost,
             "length": self.length,
-            "gene_type": self.gene_type,
+            "gene_type_entity_id": self.gene_type_entity_id,
             "effect_ids": self.effect_ids,
             "description": self.description
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Gene":
+        # Handle migration from old gene_type string to new gene_type_entity_id
+        gene_type_entity_id = data.get("gene_type_entity_id")
+        if gene_type_entity_id is None:
+            # Check for old format - ignore old string types, they'll be None now
+            old_gene_type = data.get("gene_type", "None")
+            if old_gene_type != "None":
+                # Old format had string types - these won't map to entities, so set to None
+                gene_type_entity_id = None
+
         return cls(
             id=data["id"],
             name=data["name"],
             set_name=data["set_name"],
             install_cost=data["install_cost"],
             length=data["length"],
-            gene_type=data.get("gene_type", "None"),
+            gene_type_entity_id=gene_type_entity_id,
             effect_ids=data.get("effect_ids", []),
             description=data.get("description", "")
         )
