@@ -69,9 +69,9 @@ class MainMenu(tk.Tk):
         desc_frame.pack(fill=tk.X, pady=(0, 30))
 
         description = (
-            "Create your own virtual viruses by selecting and combining genes.\n"
-            "Simulate your virus infecting a cell and achieve a runaway reaction\n"
-            "while managing limited resources and build cycles."
+            "Simulate your own virtual viruses!\n"
+            "Preview version: Work in progress.\n"
+            "Written by Claude Opus 4.5."
         )
         desc_label = ttk.Label(
             desc_frame,
