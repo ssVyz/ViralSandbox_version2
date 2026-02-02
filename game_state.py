@@ -334,9 +334,22 @@ class GameState:
         if item not in self.installed_genes:
             return False
 
+        # UTR genes cannot be moved - they must stay at position 0
+        if not self.is_orf(item):
+            gene = self.get_gene(item)
+            if gene and gene.is_utr:
+                return False
+
         idx = self.installed_genes.index(item)
         if idx == 0:
             return False  # Already at top
+
+        # Don't allow moving past UTR gene at position 0
+        prev_item = self.installed_genes[idx - 1]
+        if not self.is_orf(prev_item):
+            prev_gene = self.get_gene(prev_item)
+            if prev_gene and prev_gene.is_utr:
+                return False  # Cannot move past UTR
 
         # Swap with previous item
         self.installed_genes[idx], self.installed_genes[idx - 1] = \
@@ -347,6 +360,12 @@ class GameState:
         """Move an installed item (gene or ORF) down in the order."""
         if item not in self.installed_genes:
             return False
+
+        # UTR genes cannot be moved - they must stay at position 0 (5' end)
+        if not self.is_orf(item):
+            gene = self.get_gene(item)
+            if gene and gene.is_utr:
+                return False
 
         idx = self.installed_genes.index(item)
         if idx >= len(self.installed_genes) - 1:
