@@ -2,4 +2,4 @@ game_creation_prompt.md
 test_databases/
 .claude/
 .venv/
-.__pycache__/
+__pycache__/
