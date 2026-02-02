@@ -214,6 +214,7 @@ class Gene:
     description: str = ""
     is_utr: bool = False  # If True, this gene is a UTR (fixed at 5' end, only one allowed)
     abbreviation: str = ""  # Optional short name for display in tight spaces
+    required_genome_type: str = ""  # Genome type required for this gene's effects to work (empty = any)
 
     def get_display_name(self, use_abbreviation: bool = False) -> str:
         """Get the name to display, using abbreviation if requested and available."""
@@ -232,7 +233,8 @@ class Gene:
             "effect_ids": self.effect_ids,
             "description": self.description,
             "is_utr": self.is_utr,
-            "abbreviation": self.abbreviation
+            "abbreviation": self.abbreviation,
+            "required_genome_type": self.required_genome_type
         }
 
     @classmethod
@@ -256,7 +258,8 @@ class Gene:
             effect_ids=data.get("effect_ids", []),
             description=data.get("description", ""),
             is_utr=data.get("is_utr", False),
-            abbreviation=data.get("abbreviation", "")
+            abbreviation=data.get("abbreviation", ""),
+            required_genome_type=data.get("required_genome_type", "")
         )
 
 
@@ -275,6 +278,9 @@ class Milestone:
     target_count: int = 0  # For PRODUCE_ENTITY_COUNT
     target_turns: int = 0  # For SURVIVE_TURNS
 
+    # Prerequisite - milestone ID that must be achieved first (None = always active)
+    prerequisite_id: Optional[int] = None
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -285,7 +291,8 @@ class Milestone:
             "target_compartment": self.target_compartment,
             "target_entity_category": self.target_entity_category,
             "target_count": self.target_count,
-            "target_turns": self.target_turns
+            "target_turns": self.target_turns,
+            "prerequisite_id": self.prerequisite_id
         }
 
     @classmethod
@@ -299,5 +306,6 @@ class Milestone:
             target_compartment=data.get("target_compartment", ""),
             target_entity_category=data.get("target_entity_category", ""),
             target_count=data.get("target_count", 0),
-            target_turns=data.get("target_turns", 0)
+            target_turns=data.get("target_turns", 0),
+            prerequisite_id=data.get("prerequisite_id", None)
         )

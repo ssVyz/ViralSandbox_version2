@@ -57,6 +57,7 @@ class SimulationState:
     locations_entered: set = field(default_factory=set)
     categories_produced: set = field(default_factory=set)
     category_counts: dict = field(default_factory=dict)  # category -> max count achieved
+    active_milestone_ids: set = field(default_factory=set)  # Milestones currently being tracked
 
     # Simulation log
     log: list = field(default_factory=list)
@@ -130,6 +131,9 @@ class PlayModule(tk.Toplevel):
 
         # Track initial location
         self.sim_state.locations_entered.add(CellLocation.EXTRACELLULAR.value)
+
+        # Calculate initial active milestones (those with no prerequisites or met prerequisites)
+        self._update_active_milestones()
 
         # Record initial history
         self._record_history()
@@ -324,13 +328,31 @@ class PlayModule(tk.Toplevel):
         self._populate_milestones()
 
     def _populate_milestones(self):
-        """Populate the milestone list."""
+        """Populate the milestone list with active and achieved milestones only.
+
+        Only shows milestones that are:
+        - Already achieved (shown with checkmark)
+        - Currently active (prerequisites met, shown with circle)
+
+        Milestones with unmet prerequisites are not shown.
+        """
         for widget in self.milestone_frame.winfo_children():
             widget.destroy()
 
         self.milestone_labels = {}
 
+        # Get milestones to display: achieved OR active
+        milestones_to_show = []
         for milestone in self.game_state.database.milestones.values():
+            is_achieved = milestone.id in self.game_state.achieved_milestones
+            is_active = milestone.id in self.sim_state.active_milestone_ids
+            if is_achieved or is_active:
+                milestones_to_show.append(milestone)
+
+        # Sort by ID for consistent ordering
+        milestones_to_show.sort(key=lambda m: m.id)
+
+        for milestone in milestones_to_show:
             frame = ttk.Frame(self.milestone_frame)
             frame.pack(fill=tk.X, padx=5, pady=2)
 
@@ -1090,9 +1112,48 @@ class PlayModule(tk.Toplevel):
             self._show_end_dialog()
             return
 
-    def _check_milestones(self):
-        """Check and award milestones."""
+    def _update_active_milestones(self):
+        """Update the set of active milestones based on prerequisites.
+
+        A milestone is active if:
+        - It has not been achieved yet
+        - It has no prerequisite, OR its prerequisite has been achieved
+        """
+        new_active = set()
         for milestone in self.game_state.database.milestones.values():
+            # Skip already achieved milestones
+            if milestone.id in self.game_state.achieved_milestones:
+                continue
+
+            # Check if prerequisite is met
+            if milestone.prerequisite_id is None:
+                # No prerequisite - always active
+                new_active.add(milestone.id)
+            elif milestone.prerequisite_id in self.game_state.achieved_milestones:
+                # Prerequisite has been achieved - now active
+                new_active.add(milestone.id)
+
+        # Check if any new milestones became active
+        newly_activated = new_active - self.sim_state.active_milestone_ids
+        if newly_activated:
+            for milestone_id in newly_activated:
+                milestone = self.game_state.database.get_milestone(milestone_id)
+                if milestone:
+                    self.sim_state.log.append(
+                        f"  >> Milestone unlocked: {milestone.name}")
+
+        self.sim_state.active_milestone_ids = new_active
+
+    def _check_milestones(self):
+        """Check and award milestones (only checks active milestones)."""
+        milestones_achieved = False
+
+        # Only check milestones that are currently active
+        for milestone_id in list(self.sim_state.active_milestone_ids):
+            milestone = self.game_state.database.get_milestone(milestone_id)
+            if not milestone:
+                continue
+
             if milestone.id in self.game_state.achieved_milestones:
                 continue
 
@@ -1121,6 +1182,12 @@ class PlayModule(tk.Toplevel):
                 self.sim_state.log.append(
                     f"  *** Milestone achieved: {milestone.name} (+{milestone.reward_ep} EP) ***")
                 self._update_milestone_display(milestone.id)
+                milestones_achieved = True
+
+        # If any milestones were achieved, update active milestones to unlock new ones
+        if milestones_achieved:
+            self._update_active_milestones()
+            self._populate_milestones()  # Refresh the display to show newly active milestones
 
     def _update_milestone_display(self, milestone_id: int):
         """Update milestone display when achieved."""

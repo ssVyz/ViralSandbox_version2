@@ -989,6 +989,22 @@ class DatabaseEditor(tk.Toplevel):
                         variable=self.gene_is_utr_var).grid(row=row, column=0, columnspan=2, sticky='w', pady=2)
 
         row += 1
+        ttk.Label(right_frame, text="Required Genome:").grid(row=row, column=0, sticky='w', pady=2)
+        self.gene_genome_type_var = tk.StringVar()
+        genome_type_values = [
+            "(None)",
+            "(+)ssRNA",
+            "(-)ssRNA",
+            "dsRNA",
+            "(+)ssDNA",
+            "(-)ssDNA",
+            "dsDNA"
+        ]
+        self.gene_genome_type_combo = ttk.Combobox(right_frame, textvariable=self.gene_genome_type_var,
+                                                    values=genome_type_values, state='readonly', width=37)
+        self.gene_genome_type_combo.grid(row=row, column=1, sticky='w', pady=2)
+
+        row += 1
         ttk.Label(right_frame, text="Description:").grid(row=row, column=0, sticky='nw', pady=2)
         self.gene_desc_text = tk.Text(right_frame, width=40, height=3)
         self.gene_desc_text.grid(row=row, column=1, sticky='w', pady=2)
@@ -1072,6 +1088,12 @@ class DatabaseEditor(tk.Toplevel):
 
         self.gene_is_utr_var.set(gene.is_utr)
 
+        # Set required genome type
+        if gene.required_genome_type:
+            self.gene_genome_type_var.set(gene.required_genome_type)
+        else:
+            self.gene_genome_type_var.set("(None)")
+
         self.gene_effects_listbox.delete(0, tk.END)
         self._current_gene_effects = list(gene.effect_ids)
         for eid in gene.effect_ids:
@@ -1110,6 +1132,7 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_length_var.set("")
         self.gene_type_var.set("None")
         self.gene_is_utr_var.set(False)
+        self.gene_genome_type_var.set("(None)")
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_effects_listbox.delete(0, tk.END)
         self._current_gene_effects = []
@@ -1170,6 +1193,12 @@ class DatabaseEditor(tk.Toplevel):
             except (ValueError, IndexError):
                 pass
 
+        # Parse required genome type
+        genome_type_selection = self.gene_genome_type_var.get()
+        required_genome_type = ""
+        if genome_type_selection and genome_type_selection != "(None)":
+            required_genome_type = genome_type_selection
+
         gene = Gene(
             id=gene_id,
             name=name,
@@ -1180,7 +1209,8 @@ class DatabaseEditor(tk.Toplevel):
             effect_ids=list(self._current_gene_effects),
             description=self.gene_desc_text.get('1.0', tk.END).strip(),
             is_utr=self.gene_is_utr_var.get(),
-            abbreviation=self.gene_abbrev_var.get().strip()
+            abbreviation=self.gene_abbrev_var.get().strip(),
+            required_genome_type=required_genome_type
         )
 
         if gene_id in self.database.genes:
@@ -1263,6 +1293,14 @@ class DatabaseEditor(tk.Toplevel):
         self.milestone_desc_text = tk.Text(right_frame, width=40, height=3)
         self.milestone_desc_text.grid(row=row, column=1, sticky='w', pady=2)
 
+        row += 1
+        ttk.Label(right_frame, text="Prerequisite:").grid(row=row, column=0, sticky='w', pady=2)
+        self.milestone_prerequisite_var = tk.StringVar()
+        self.milestone_prerequisite_combo = ttk.Combobox(
+            right_frame, textvariable=self.milestone_prerequisite_var,
+            state='readonly', width=37)
+        self.milestone_prerequisite_combo.grid(row=row, column=1, sticky='w', pady=2)
+
         # Type-specific fields
         row += 1
         self.milestone_params_frame = ttk.LabelFrame(right_frame, text="Parameters")
@@ -1332,6 +1370,14 @@ class DatabaseEditor(tk.Toplevel):
         elif milestone_type == MilestoneType.SURVIVE_TURNS.value:
             self.milestone_turns_entry.config(state='normal')
 
+    def _update_prerequisite_combo(self, exclude_id: int = None):
+        """Update the prerequisite combobox with available milestones."""
+        values = ["(None)"]
+        for milestone in sorted(self.database.milestones.values(), key=lambda m: m.id):
+            if exclude_id is None or milestone.id != exclude_id:
+                values.append(f"[{milestone.id}] {milestone.name}")
+        self.milestone_prerequisite_combo['values'] = values
+
     def _filter_milestones(self):
         """Filter the milestone list based on search."""
         search = self.milestone_search_var.get().lower()
@@ -1365,6 +1411,15 @@ class DatabaseEditor(tk.Toplevel):
         self.milestone_entity_cat_var.set(milestone.target_entity_category)
         self.milestone_count_var.set(str(milestone.target_count) if milestone.target_count else "")
         self.milestone_turns_var.set(str(milestone.target_turns) if milestone.target_turns else "")
+        self._update_prerequisite_combo(exclude_id=milestone.id)
+        if milestone.prerequisite_id:
+            prereq = self.database.get_milestone(milestone.prerequisite_id)
+            if prereq:
+                self.milestone_prerequisite_var.set(f"[{prereq.id}] {prereq.name}")
+            else:
+                self.milestone_prerequisite_var.set("(None)")
+        else:
+            self.milestone_prerequisite_var.set("(None)")
         self._on_milestone_type_change()
 
     def _new_milestone(self):
@@ -1396,6 +1451,8 @@ class DatabaseEditor(tk.Toplevel):
         self.milestone_entity_cat_var.set("")
         self.milestone_count_var.set("")
         self.milestone_turns_var.set("")
+        self.milestone_prerequisite_var.set("(None)")
+        self._update_prerequisite_combo()
         self._on_milestone_type_change()
         self.current_selection = None
 
@@ -1420,6 +1477,15 @@ class DatabaseEditor(tk.Toplevel):
         milestone_id_str = self.milestone_id_var.get()
         milestone_id = int(milestone_id_str) if milestone_id_str else 0
 
+        # Parse prerequisite ID from combo selection
+        prereq_str = self.milestone_prerequisite_var.get()
+        prereq_id = None
+        if prereq_str and prereq_str != "(None)" and prereq_str.startswith("["):
+            try:
+                prereq_id = int(prereq_str.split(']')[0][1:])
+            except (ValueError, IndexError):
+                prereq_id = None
+
         milestone = Milestone(
             id=milestone_id,
             name=name,
@@ -1429,7 +1495,8 @@ class DatabaseEditor(tk.Toplevel):
             target_compartment=self.milestone_compartment_var.get(),
             target_entity_category=self.milestone_entity_cat_var.get(),
             target_count=int(self.milestone_count_var.get()) if self.milestone_count_var.get() else 0,
-            target_turns=int(self.milestone_turns_var.get()) if self.milestone_turns_var.get() else 0
+            target_turns=int(self.milestone_turns_var.get()) if self.milestone_turns_var.get() else 0,
+            prerequisite_id=prereq_id
         )
 
         if milestone_id in self.database.milestones:

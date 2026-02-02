@@ -634,7 +634,12 @@ class BuilderModule(tk.Toplevel):
                                command=lambda: self._toggle_gene(gene.id, panel))
         expand_btn.pack(side=tk.LEFT)
 
-        # Gene info with color based on affordability and selection
+        # Check if gene is genome-incompatible (only for installed panel)
+        is_genome_incompatible = (panel == 'installed' and
+                                   not self.game_state.is_gene_genome_compatible(gene))
+
+        # Gene info with color based on affordability, selection, and genome compatibility
+        font_style = ('TkDefaultFont', 10, 'italic') if is_genome_incompatible else None
         if is_selected:
             bg_color = '#cce5ff'
             fg_color = '#004085'
@@ -643,14 +648,18 @@ class BuilderModule(tk.Toplevel):
             fg_color = 'blue' if gene.install_cost <= self.game_state.evolution_points else 'red'
         else:
             bg_color = gene_frame.cget('bg')
-            fg_color = 'dark green'
+            fg_color = 'red' if is_genome_incompatible else 'dark green'
 
         # Add UTR indicator if applicable
         utr_indicator = " [UTR]" if gene.is_utr else ""
-        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]{utr_indicator}"
+        # Add genome incompatibility indicator
+        genome_indicator = " - Wrong genome type" if is_genome_incompatible else ""
+        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]{utr_indicator}{genome_indicator}"
 
         gene_label = tk.Label(gene_frame, text=gene_text, cursor="hand2",
                              fg=fg_color, bg=bg_color if is_selected else gene_frame.cget('bg'))
+        if font_style:
+            gene_label.configure(font=font_style)
         gene_label.pack(side=tk.LEFT, padx=5)
         gene_label.bind("<Button-1>", lambda e, g=gene, p=panel: self._select_gene(g, p))
 
@@ -1035,6 +1044,55 @@ class BuilderModule(tk.Toplevel):
         if gene_id not in self.game_state.available_genes:
             messagebox.showinfo("Select Gene", "Please select a gene from available genes.")
             return
+
+        gene = self.game_state.get_gene(gene_id)
+
+        # Check if gene requires a specific genome type
+        if gene and gene.required_genome_type:
+            current_genome = self.game_state.virus_config.get_genome_string()
+
+            if not self.game_state.virus_config.is_locked:
+                # Genome not locked - prompt user to lock it
+                lock_cost = self.game_state.config_lock_cost
+                result = messagebox.askyesnocancel(
+                    "Genome Type Required",
+                    f"This gene requires genome type: {gene.required_genome_type}\n\n"
+                    f"Your current genome configuration is: {current_genome}\n\n"
+                    f"Would you like to lock your genome configuration for {lock_cost} EP?\n\n"
+                    f"Yes = Lock current config ({current_genome}) and install gene\n"
+                    f"No = Install gene without locking (gene will be inactive)\n"
+                    f"Cancel = Don't install"
+                )
+                if result is None:
+                    return  # Cancel
+                elif result is True:
+                    # Lock configuration first
+                    success, msg = self.game_state.lock_config()
+                    if not success:
+                        messagebox.showerror("Cannot Lock", msg)
+                        return
+                    self._refresh_all()
+                    # Re-check compatibility after locking
+                    current_genome = self.game_state.virus_config.get_genome_string()
+                    if current_genome != gene.required_genome_type:
+                        messagebox.showwarning(
+                            "Genome Mismatch",
+                            f"Your genome ({current_genome}) doesn't match the gene's requirement ({gene.required_genome_type}).\n\n"
+                            f"The gene will be installed but its effects will be inactive."
+                        )
+                # If No, proceed with installation (gene will be inactive)
+
+            elif current_genome != gene.required_genome_type:
+                # Genome is locked to a different type
+                result = messagebox.askyesno(
+                    "Genome Type Mismatch",
+                    f"This gene requires genome type: {gene.required_genome_type}\n"
+                    f"Your genome is locked to: {current_genome}\n\n"
+                    f"The gene can still be installed but its effects will be inactive.\n\n"
+                    f"Install anyway?"
+                )
+                if not result:
+                    return
 
         success, message = self.game_state.install_gene(gene_id)
         if success:

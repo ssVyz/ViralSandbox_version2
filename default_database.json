@@ -1,6 +1,6 @@
 {
-  "db_version": 1,
-  "last_modified": "2026-02-01T18:16:48",
+  "db_version": 2,
+  "last_modified": "2026-02-02T07:20:44",
   "entities": [
     {
       "id": 1,
@@ -666,7 +666,8 @@
       ],
       "description": "Encodes the spike glycoprotein for receptor binding",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 2,
@@ -680,7 +681,8 @@
       ],
       "description": "Facilitates membrane fusion and endocytosis",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 3,
@@ -694,7 +696,8 @@
       ],
       "description": "Promotes efficient uncoating in endosomes",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 4,
@@ -708,7 +711,8 @@
       ],
       "description": "Enhances receptor binding affinity",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 5,
@@ -720,7 +724,8 @@
       "effect_ids": [],
       "description": "Has various functions",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 6,
@@ -732,7 +737,8 @@
       "effect_ids": [],
       "description": "HIV int gene",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 7,
@@ -749,7 +755,8 @@
       ],
       "description": "Enterovirus capsid proteins.",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": "(+)ssRNA"
     },
     {
       "id": 8,
@@ -763,7 +770,8 @@
       ],
       "description": "Enterovirus 2A Protease. Also responsible for shutting of cap dependent translation.",
       "is_utr": false,
-      "abbreviation": "2Apro"
+      "abbreviation": "2Apro",
+      "required_genome_type": ""
     },
     {
       "id": 9,
@@ -777,7 +785,8 @@
       ],
       "description": "Enterovirus UTR",
       "is_utr": true,
-      "abbreviation": "UTR"
+      "abbreviation": "UTR",
+      "required_genome_type": ""
     },
     {
       "id": 10,
@@ -791,7 +800,8 @@
       ],
       "description": "Main Enterovirus Protease",
       "is_utr": false,
-      "abbreviation": "3Cpro"
+      "abbreviation": "3Cpro",
+      "required_genome_type": ""
     },
     {
       "id": 11,
@@ -805,7 +815,8 @@
       ],
       "description": "VPg for Translation",
       "is_utr": false,
-      "abbreviation": ""
+      "abbreviation": "",
+      "required_genome_type": ""
     },
     {
       "id": 12,
@@ -820,7 +831,8 @@
       ],
       "description": "Enterovirus RdRp",
       "is_utr": false,
-      "abbreviation": "3Dpol"
+      "abbreviation": "3Dpol",
+      "required_genome_type": ""
     }
   ],
   "milestones": [
@@ -833,7 +845,8 @@
       "target_compartment": "Membrane",
       "target_entity_category": "",
       "target_count": 0,
-      "target_turns": 0
+      "target_turns": 0,
+      "prerequisite_id": null
     },
     {
       "id": 2,
@@ -844,7 +857,8 @@
       "target_compartment": "Cytosol",
       "target_entity_category": "",
       "target_count": 0,
-      "target_turns": 0
+      "target_turns": 0,
+      "prerequisite_id": null
     },
     {
       "id": 3,
@@ -855,7 +869,8 @@
       "target_compartment": "",
       "target_entity_category": "Virion",
       "target_count": 0,
-      "target_turns": 0
+      "target_turns": 0,
+      "prerequisite_id": null
     },
     {
       "id": 4,
@@ -866,7 +881,8 @@
       "target_compartment": "",
       "target_entity_category": "Virion",
       "target_count": 100,
-      "target_turns": 0
+      "target_turns": 0,
+      "prerequisite_id": null
     },
     {
       "id": 5,
@@ -877,7 +893,8 @@
       "target_compartment": "",
       "target_entity_category": "",
       "target_count": 0,
-      "target_turns": 50
+      "target_turns": 50,
+      "prerequisite_id": null
     }
   ],
   "degradation_chances": {

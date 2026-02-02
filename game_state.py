@@ -477,6 +477,35 @@ class GameState:
                     ids.add(gene.gene_type_entity_id)
         return ids
 
+    def is_gene_genome_compatible(self, gene) -> bool:
+        """Check if a gene's required genome type matches the locked genome type.
+
+        Returns True if:
+        - Gene has no required_genome_type (empty string)
+        - Genome is locked and matches the gene's required type
+        Returns False if:
+        - Genome is not locked but gene requires a specific type
+        - Genome is locked to a different type than the gene requires
+        """
+        if not gene.required_genome_type:
+            return True  # No requirement, always compatible
+
+        if not self.virus_config.is_locked:
+            return False  # Gene requires specific type but genome not locked
+
+        current_genome = self.virus_config.get_genome_string()
+        return current_genome == gene.required_genome_type
+
+    def get_genome_incompatible_genes(self) -> set:
+        """Get set of installed gene IDs that are incompatible with current genome type."""
+        incompatible = set()
+        for item in self.installed_genes:
+            if not self.is_orf(item):
+                gene = self.get_gene(item)
+                if gene and not self.is_gene_genome_compatible(gene):
+                    incompatible.add(gene.id)
+        return incompatible
+
     def can_entity_exist(self, entity_id: int) -> bool:
         """Check if an entity can exist based on enabled types.
 
@@ -574,13 +603,16 @@ class GameState:
 
         Args:
             filter_invalid: If True, only include effects that can actually happen
-                           based on enabled types, ORFs, etc.
+                           based on enabled types, ORFs, genome compatibility, etc.
         """
         effect_ids = set()
         for item in self.installed_genes:
             if not self.is_orf(item):
                 gene = self.get_gene(item)
                 if gene:
+                    # Skip effects from genes with incompatible genome type
+                    if not self.is_gene_genome_compatible(gene):
+                        continue
                     effect_ids.update(gene.effect_ids)
 
         if not filter_invalid:

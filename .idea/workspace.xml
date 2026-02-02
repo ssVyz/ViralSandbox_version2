@@ -4,7 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6c0d9d56-d4bd-4466-9054-e5b44d5f0579" name="Changes" comment="editor and builder, first version" />
+    <list default="true" id="6c0d9d56-d4bd-4466-9054-e5b44d5f0579" name="Changes" comment="small changes">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/builder.py" beforeDir="false" afterPath="$PROJECT_DIR$/builder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database_editor.py" beforeDir="false" afterPath="$PROJECT_DIR$/database_editor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/game_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/play_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/play_module.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -29,13 +36,13 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.main.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "master"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -68,12 +75,101 @@
       <option name="project" value="LOCAL" />
       <updated>1769935127866</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="types and proteins">
+      <option name="closed" value="true" />
+      <created>1769941832508</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1769941832508</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Optimizations">
+      <option name="closed" value="true" />
+      <created>1769944343532</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1769944343532</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Play module and global settings">
+      <option name="closed" value="true" />
+      <created>1769946684964</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1769946684964</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Polyprotein implementation">
+      <option name="closed" value="true" />
+      <created>1769955124334</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1769955124334</updated>
+    </task>
+    <task id="LOCAL-00007" summary="during debugging">
+      <option name="closed" value="true" />
+      <created>1769958151208</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1769958151208</updated>
+    </task>
+    <task id="LOCAL-00008" summary="post bug fixing">
+      <option name="closed" value="true" />
+      <created>1769958901056</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1769958901056</updated>
+    </task>
+    <task id="LOCAL-00009" summary="play module adjustments">
+      <option name="closed" value="true" />
+      <created>1769960176193</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1769960176193</updated>
+    </task>
+    <task id="LOCAL-00010" summary="abbreviations">
+      <option name="closed" value="true" />
+      <created>1769962675169</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1769962675169</updated>
+    </task>
+    <task id="LOCAL-00011" summary="small changes">
+      <option name="closed" value="true" />
+      <created>1769966183916</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1769966183916</updated>
+    </task>
+    <task id="LOCAL-00012" summary="small changes">
+      <option name="closed" value="true" />
+      <created>1769976346158</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1769976346158</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Project setup" />
     <MESSAGE value="editor and builder, first version" />
-    <option name="LAST_COMMIT_MESSAGE" value="editor and builder, first version" />
+    <MESSAGE value="types and proteins" />
+    <MESSAGE value="Optimizations" />
+    <MESSAGE value="Play module and global settings" />
+    <MESSAGE value="Polyprotein implementation" />
+    <MESSAGE value="during debugging" />
+    <MESSAGE value="post bug fixing" />
+    <MESSAGE value="play module adjustments" />
+    <MESSAGE value="abbreviations" />
+    <MESSAGE value="small changes" />
+    <option name="LAST_COMMIT_MESSAGE" value="small changes" />
   </component>
 </project>
