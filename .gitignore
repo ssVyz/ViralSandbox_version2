@@ -1,2 +1,4 @@
 game_creation_prompt.md
 test_databases/
+.claude/
+.venv/
