@@ -1,6 +1,6 @@
 {
-  "db_version": 2,
-  "last_modified": "2026-02-02T07:20:44",
+  "db_version": 14,
+  "last_modified": "2026-02-02T17:58:28",
   "entities": [
     {
       "id": 1,
@@ -417,7 +417,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 0.1,
+      "interferon_production": 0.04,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -463,7 +463,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 0.1,
+      "interferon_production": 0.04,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -489,14 +489,14 @@
       "is_global": false,
       "inputs": [
         {
-          "entity_id": 12,
-          "amount": 3,
+          "entity_id": 3,
+          "amount": 1,
           "location": "Cytosol",
           "consumed": true
         },
         {
-          "entity_id": 3,
-          "amount": 1,
+          "entity_id": 12,
+          "amount": 6,
           "location": "Cytosol",
           "consumed": true
         }
@@ -548,8 +548,8 @@
           "location": "Extracellular"
         }
       ],
-      "chance": 100.0,
-      "interferon_production": 10.0,
+      "chance": 60.0,
+      "interferon_production": 0.5,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -609,8 +609,8 @@
       "target_effect_id": null,
       "target_category": "picornardrp",
       "chance_modifier": 150.0,
-      "interferon_modifier": 0.0,
-      "antibody_modifier": 0.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
       "source_location": "",
       "target_location": "",
       "affected_entity_id": null,
@@ -648,8 +648,35 @@
           "location": "Cytosol"
         }
       ],
-      "translation_chance": 60.0,
+      "translation_chance": 100.0,
       "orf_targeting": "ORF-1 only",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 15,
+      "name": "Degradation of eIF4",
+      "effect_type": "Modify transition",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "picornardrp",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 0.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
       "self_cleavage_chance": 0.0
     }
   ],
@@ -766,7 +793,8 @@
       "length": 500,
       "gene_type_entity_id": null,
       "effect_ids": [
-        12
+        12,
+        15
       ],
       "description": "Enterovirus 2A Protease. Also responsible for shutting of cap dependent translation.",
       "is_utr": false,
@@ -899,8 +927,8 @@
   ],
   "degradation_chances": {
     "Virion": {
-      "Extracellular": 5.0,
-      "Membrane": 5.0,
+      "Extracellular": 3.0,
+      "Membrane": 3.0,
       "Endosome": 10.0,
       "ER": 25.0,
       "Cytosol": 5.0,
