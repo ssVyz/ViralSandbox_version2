@@ -1,6 +1,6 @@
 {
-  "db_version": 15,
-  "last_modified": "2026-02-03T13:06:06",
+  "db_version": 21,
+  "last_modified": "2026-02-03T18:17:30",
   "entities": [
     {
       "id": 1,
@@ -141,154 +141,6 @@
   ],
   "effects": [
     {
-      "id": 1,
-      "name": "Membrane Binding",
-      "effect_type": "Transition",
-      "category": "Entry",
-      "description": "Virion binds to cell membrane receptor",
-      "is_global": false,
-      "inputs": [
-        {
-          "entity_id": 1,
-          "amount": 1,
-          "location": "Extracellular",
-          "consumed": true
-        }
-      ],
-      "outputs": [
-        {
-          "entity_id": 8,
-          "amount": 1,
-          "location": "Membrane"
-        }
-      ],
-      "chance": 30.0,
-      "interferon_production": 0.0,
-      "antibody_response": 0.0,
-      "requires_genome_type": "",
-      "target_effect_id": null,
-      "target_category": "",
-      "chance_modifier": 0.0,
-      "interferon_modifier": 0.0,
-      "antibody_modifier": 0.0,
-      "source_location": "",
-      "target_location": "",
-      "affected_entity_id": null,
-      "location_change_chance": 100.0,
-      "templates": [],
-      "translation_chance": 100.0,
-      "orf_targeting": "Random ORF",
-      "self_cleavage_chance": 0.0
-    },
-    {
-      "id": 2,
-      "name": "Endocytosis",
-      "effect_type": "Transition",
-      "category": "Entry",
-      "description": "Bound virion is internalized via endocytosis",
-      "is_global": false,
-      "inputs": [
-        {
-          "entity_id": 8,
-          "amount": 1,
-          "location": "Membrane",
-          "consumed": true
-        }
-      ],
-      "outputs": [
-        {
-          "entity_id": 9,
-          "amount": 1,
-          "location": "Endosome"
-        }
-      ],
-      "chance": 50.0,
-      "interferon_production": 0.5,
-      "antibody_response": 0.0,
-      "requires_genome_type": "",
-      "target_effect_id": null,
-      "target_category": "",
-      "chance_modifier": 0.0,
-      "interferon_modifier": 0.0,
-      "antibody_modifier": 0.0,
-      "source_location": "",
-      "target_location": "",
-      "affected_entity_id": null,
-      "location_change_chance": 100.0,
-      "templates": [],
-      "translation_chance": 100.0,
-      "orf_targeting": "Random ORF",
-      "self_cleavage_chance": 0.0
-    },
-    {
-      "id": 3,
-      "name": "Uncoating",
-      "effect_type": "Transition",
-      "category": "Entry",
-      "description": "Viral genome is released from capsid into cytosol",
-      "is_global": false,
-      "inputs": [
-        {
-          "entity_id": 9,
-          "amount": 1,
-          "location": "Endosome",
-          "consumed": true
-        }
-      ],
-      "outputs": [
-        {
-          "entity_id": 0,
-          "amount": 1,
-          "location": "Cytosol",
-          "is_unpack_genome": true
-        }
-      ],
-      "chance": 40.0,
-      "interferon_production": 1.0,
-      "antibody_response": 0.0,
-      "requires_genome_type": "",
-      "target_effect_id": null,
-      "target_category": "",
-      "chance_modifier": 0.0,
-      "interferon_modifier": 0.0,
-      "antibody_modifier": 0.0,
-      "source_location": "",
-      "target_location": "",
-      "affected_entity_id": null,
-      "location_change_chance": 100.0,
-      "templates": [],
-      "translation_chance": 100.0,
-      "orf_targeting": "Random ORF",
-      "self_cleavage_chance": 0.0
-    },
-    {
-      "id": 4,
-      "name": "Enhanced Binding",
-      "effect_type": "Modify transition",
-      "category": "Entry Modifier",
-      "description": "Increases the chance of membrane binding",
-      "is_global": false,
-      "inputs": [],
-      "outputs": [],
-      "chance": 100.0,
-      "interferon_production": 0.0,
-      "antibody_response": 0.0,
-      "requires_genome_type": "",
-      "target_effect_id": 1,
-      "target_category": "",
-      "chance_modifier": 15.0,
-      "interferon_modifier": 0.0,
-      "antibody_modifier": 0.0,
-      "source_location": "",
-      "target_location": "",
-      "affected_entity_id": null,
-      "location_change_chance": 100.0,
-      "templates": [],
-      "translation_chance": 100.0,
-      "orf_targeting": "Random ORF",
-      "self_cleavage_chance": 0.0
-    },
-    {
       "id": 5,
       "name": "Translation of viral proteins",
       "effect_type": "Translation",
@@ -341,7 +193,7 @@
       "source_location": "Extracellular",
       "target_location": "Membrane",
       "affected_entity_id": 2,
-      "location_change_chance": 30.0,
+      "location_change_chance": 20.0,
       "templates": [],
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
@@ -417,7 +269,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 0.04,
+      "interferon_production": 0.5,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -463,7 +315,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 0.04,
+      "interferon_production": 0.5,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -496,7 +348,7 @@
         },
         {
           "entity_id": 12,
-          "amount": 6,
+          "amount": 20,
           "location": "Cytosol",
           "consumed": true
         }
@@ -508,7 +360,7 @@
           "location": "Cytosol"
         }
       ],
-      "chance": 40.0,
+      "chance": 75.0,
       "interferon_production": 0.0,
       "antibody_response": 0.0,
       "requires_genome_type": "",
@@ -536,7 +388,7 @@
       "inputs": [
         {
           "entity_id": 2,
-          "amount": 20,
+          "amount": 100,
           "location": "Cytosol",
           "consumed": true
         }
@@ -544,13 +396,13 @@
       "outputs": [
         {
           "entity_id": 2,
-          "amount": 20,
+          "amount": 100,
           "location": "Extracellular"
         }
       ],
       "chance": 60.0,
-      "interferon_production": 0.5,
-      "antibody_response": 0.0,
+      "interferon_production": 1.0,
+      "antibody_response": 10.0,
       "requires_genome_type": "",
       "target_effect_id": null,
       "target_category": "",
@@ -657,7 +509,7 @@
       "name": "Degradation of eIF4",
       "effect_type": "Modify transition",
       "category": "",
-      "description": "",
+      "description": "Shut down of host protein synthesis.",
       "is_global": false,
       "inputs": [],
       "outputs": [],
@@ -668,7 +520,7 @@
       "target_effect_id": null,
       "target_category": "picornardrp",
       "chance_modifier": 100.0,
-      "interferon_modifier": 0.0,
+      "interferon_modifier": 10.0,
       "antibody_modifier": 100.0,
       "source_location": "",
       "target_location": "",
@@ -681,92 +533,6 @@
     }
   ],
   "genes": [
-    {
-      "id": 1,
-      "name": "Spike Protein",
-      "set_name": "SARS-CoV-2",
-      "install_cost": 15,
-      "length": 1200,
-      "gene_type_entity_id": 13,
-      "effect_ids": [
-        1
-      ],
-      "description": "Encodes the spike glycoprotein for receptor binding",
-      "is_utr": false,
-      "abbreviation": "",
-      "required_genome_type": ""
-    },
-    {
-      "id": 2,
-      "name": "Membrane Fusion Peptide",
-      "set_name": "HIV",
-      "install_cost": 20,
-      "length": 900,
-      "gene_type_entity_id": 13,
-      "effect_ids": [
-        2
-      ],
-      "description": "Facilitates membrane fusion and endocytosis",
-      "is_utr": false,
-      "abbreviation": "",
-      "required_genome_type": ""
-    },
-    {
-      "id": 3,
-      "name": "Capsid Disassembly Factor",
-      "set_name": "Influenza",
-      "install_cost": 25,
-      "length": 600,
-      "gene_type_entity_id": null,
-      "effect_ids": [
-        3
-      ],
-      "description": "Promotes efficient uncoating in endosomes",
-      "is_utr": false,
-      "abbreviation": "",
-      "required_genome_type": ""
-    },
-    {
-      "id": 4,
-      "name": "High-Affinity Receptor Binding Domain",
-      "set_name": "SARS-CoV-2",
-      "install_cost": 30,
-      "length": 450,
-      "gene_type_entity_id": null,
-      "effect_ids": [
-        4
-      ],
-      "description": "Enhances receptor binding affinity",
-      "is_utr": false,
-      "abbreviation": "",
-      "required_genome_type": ""
-    },
-    {
-      "id": 5,
-      "name": "X Gene",
-      "set_name": "HBV",
-      "install_cost": 15,
-      "length": 300,
-      "gene_type_entity_id": 15,
-      "effect_ids": [],
-      "description": "Has various functions",
-      "is_utr": false,
-      "abbreviation": "",
-      "required_genome_type": ""
-    },
-    {
-      "id": 6,
-      "name": "Integrase",
-      "set_name": "HIV",
-      "install_cost": 10,
-      "length": 700,
-      "gene_type_entity_id": 16,
-      "effect_ids": [],
-      "description": "HIV int gene",
-      "is_utr": false,
-      "abbreviation": "",
-      "required_genome_type": ""
-    },
     {
       "id": 7,
       "name": "VP1-3",
@@ -835,9 +601,9 @@
       "id": 11,
       "name": "3B VPg",
       "set_name": "EV",
-      "install_cost": 0,
+      "install_cost": 15,
       "length": 90,
-      "gene_type_entity_id": 15,
+      "gene_type_entity_id": null,
       "effect_ids": [
         13
       ],
@@ -974,5 +740,5 @@
     "RNA": 100.0,
     "Protein": 50.0
   },
-  "interferon_decay": 1.0
+  "interferon_decay": 100.0
 }
