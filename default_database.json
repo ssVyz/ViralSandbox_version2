@@ -1,6 +1,6 @@
 {
-  "db_version": 14,
-  "last_modified": "2026-02-02T17:58:28",
+  "db_version": 15,
+  "last_modified": "2026-02-03T13:06:06",
   "entities": [
     {
       "id": 1,
@@ -868,7 +868,7 @@
       "id": 1,
       "name": "First Contact",
       "milestone_type": "Enter compartment",
-      "reward_ep": 10,
+      "reward_ep": 50,
       "description": "Successfully bind to the cell membrane",
       "target_compartment": "Membrane",
       "target_entity_category": "",
@@ -916,7 +916,7 @@
       "id": 5,
       "name": "Survivor",
       "milestone_type": "Survive turns",
-      "reward_ep": 25,
+      "reward_ep": 50,
       "description": "Survive for 50 turns",
       "target_compartment": "",
       "target_entity_category": "",

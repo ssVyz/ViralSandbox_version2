@@ -240,6 +240,11 @@ class BuilderModule(tk.Toplevel):
                                       command=self._add_orf)
         self.add_orf_btn.pack(side=tk.LEFT, padx=5)
 
+        # Add Terminator button
+        self.add_term_btn = ttk.Button(btn_frame, text="+ Add Terminator",
+                                       command=self._add_terminator)
+        self.add_term_btn.pack(side=tk.LEFT, padx=5)
+
         # Ordering buttons
         ttk.Separator(btn_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
         ttk.Label(btn_frame, text="Order:").pack(side=tk.LEFT, padx=2)
@@ -456,14 +461,19 @@ class BuilderModule(tk.Toplevel):
 
         # Build gene position map (for ORF visualization)
         # Map gene_id to (x_start, x_end, color_index)
+        # Also track terminator positions for visualization
         gene_positions = {}
+        terminator_positions = {}  # Map terminator name to x position
         colors = ['#FF5722', '#9C27B0', '#00BCD4', '#FFEB3B', '#E91E63',
                   '#8BC34A', '#FF9800', '#3F51B5', '#009688', '#F44336']
         x_pos = left_margin
         color_idx = 0
 
         for item in self.game_state.installed_genes:
-            if not self.game_state.is_orf(item):
+            if self.game_state.is_terminator(item):
+                # Track terminator position (at current x position)
+                terminator_positions[item] = x_pos
+            elif not self.game_state.is_orf(item):
                 gene = self.game_state.get_gene(item)
                 if gene:
                     # Calculate proportional width
@@ -570,6 +580,37 @@ class BuilderModule(tk.Toplevel):
                     fill=orf_color
                 )
 
+        # Draw Terminator indicators (vertical red lines)
+        for term_name, term_x in terminator_positions.items():
+            # Check if this terminator is selected
+            is_term_selected = (self.selected_item and
+                               self.selected_item[0] == 'terminator' and
+                               self.selected_item[1] == term_name)
+            line_width = 4 if is_term_selected else 2
+            term_color = '#cc0000'
+
+            # Draw vertical line through the genome
+            if config.strandedness == "double":
+                self.genome_canvas.create_line(
+                    term_x, genome_center_y - 15,
+                    term_x, genome_center_y + 15,
+                    fill=term_color, width=line_width
+                )
+            else:
+                self.genome_canvas.create_line(
+                    term_x, genome_center_y - 12,
+                    term_x, genome_center_y + 12,
+                    fill=term_color, width=line_width
+                )
+
+            # Draw small "T" or stop indicator above
+            self.genome_canvas.create_text(
+                term_x, genome_center_y - 20,
+                text="T",
+                font=('TkDefaultFont', 8, 'bold'),
+                fill=term_color
+            )
+
         # Draw length indicator below
         self.genome_canvas.create_text(
             width // 2, height - 5,
@@ -607,6 +648,8 @@ class BuilderModule(tk.Toplevel):
         for item in self.game_state.installed_genes:
             if self.game_state.is_orf(item):
                 self._create_orf_entry(self.installed_frame, item)
+            elif self.game_state.is_terminator(item):
+                self._create_terminator_entry(self.installed_frame, item)
             else:
                 gene = self.game_state.get_gene(item)
                 if gene:
@@ -732,6 +775,62 @@ class BuilderModule(tk.Toplevel):
                                   font=('TkDefaultFont', 9))
             count_label.pack(side=tk.LEFT)
 
+    def _create_terminator_entry(self, parent, term_name: str):
+        """Create a Terminator entry in the installed list."""
+        # Check if this Terminator is selected
+        is_selected = (self.selected_item and
+                       self.selected_item[0] == 'terminator' and
+                       self.selected_item[1] == term_name)
+
+        # Terminator frame with selection highlighting
+        term_frame = tk.Frame(parent)
+        if is_selected:
+            term_frame.configure(bg='#ffe6e6', relief=tk.SOLID, borderwidth=1)
+        else:
+            term_frame.configure(bg='#fff0f0')
+        term_frame.pack(fill=tk.X, padx=2, pady=1)
+
+        # Terminator indicator
+        term_indicator = tk.Label(term_frame, text="[STOP]", font=('TkDefaultFont', 9, 'bold'),
+                                 fg='#cc0000', bg=term_frame.cget('bg'))
+        term_indicator.pack(side=tk.LEFT, padx=2)
+
+        # Terminator name
+        term_label = tk.Label(term_frame, text=term_name, cursor="hand2",
+                             fg='#cc0000', bg=term_frame.cget('bg'),
+                             font=('TkDefaultFont', 10, 'bold'))
+        term_label.pack(side=tk.LEFT, padx=5)
+        term_label.bind("<Button-1>", lambda e, name=term_name: self._select_terminator(name))
+
+    def _select_terminator(self, term_name: str):
+        """Select a Terminator and show its details."""
+        self.selected_item = ('terminator', term_name)
+        self._show_terminator_details(term_name)
+        # Refresh gene lists to show selection
+        self._update_available_genes()
+        self._update_installed_genes()
+        self._update_genome_visual()
+        self._update_move_buttons()
+
+    def _show_terminator_details(self, term_name: str):
+        """Show Terminator details in the details panel."""
+        self.details_text.config(state=tk.NORMAL)
+        self.details_text.delete('1.0', tk.END)
+
+        self.details_text.insert(tk.END, f"{term_name}\n", "title")
+        self.details_text.insert(tk.END, f"\nType: ", "header")
+        self.details_text.insert(tk.END, "Terminator\n", "value")
+
+        self.details_text.insert(tk.END, f"\nRemoval Cost: ", "header")
+        self.details_text.insert(tk.END, "Free\n", "value")
+
+        self.details_text.insert(tk.END, f"\nDescription:\n", "header")
+        self.details_text.insert(tk.END, "Terminators mark the end of Open Reading Frames (ORFs). "
+                                        "All ORFs that precede this terminator will stop at this point. "
+                                        "Terminators can be removed for free.\n", "value")
+
+        self.details_text.config(state=tk.DISABLED)
+
     def _select_orf(self, orf_name: str):
         """Select an ORF and show its details."""
         self.selected_item = ('orf', orf_name)
@@ -774,8 +873,9 @@ class BuilderModule(tk.Toplevel):
 
         self.details_text.insert(tk.END, f"\nDescription:\n", "header")
         self.details_text.insert(tk.END, "ORFs define reading frames for protein translation. "
-                                        "All genes below this ORF (until the next ORF) will be "
-                                        "translated together.\n", "value")
+                                        "All genes after this ORF (until the next Terminator or end of genome) "
+                                        "will be translated together. Multiple ORFs can overlap if there's "
+                                        "no Terminator between them.\n", "value")
 
         self.details_text.config(state=tk.DISABLED)
 
@@ -808,6 +908,7 @@ class BuilderModule(tk.Toplevel):
             # Effects can't be moved
             elif item_type == 'effect':
                 can_move = False
+            # ORFs and terminators can be moved (no special restrictions)
 
         state = 'normal' if can_move else 'disabled'
         self.move_up_btn.config(state=state)
@@ -829,14 +930,14 @@ class BuilderModule(tk.Toplevel):
         self._update_move_buttons()
 
     def _move_item_up(self):
-        """Move the selected installed item (gene or ORF) up in order."""
+        """Move the selected installed item (gene, ORF, or Terminator) up in order."""
         if not self.selected_item:
-            messagebox.showinfo("Select Item", "Please select an installed gene or ORF first.")
+            messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator first.")
             return
 
         item_type, item_id = self.selected_item
-        if item_type not in ('gene', 'orf'):
-            messagebox.showinfo("Select Item", "Please select an installed gene or ORF.")
+        if item_type not in ('gene', 'orf', 'terminator'):
+            messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator.")
             return
 
         if item_id not in self.game_state.installed_genes:
@@ -848,14 +949,14 @@ class BuilderModule(tk.Toplevel):
             self._update_genome_visual()
 
     def _move_item_down(self):
-        """Move the selected installed item (gene or ORF) down in order."""
+        """Move the selected installed item (gene, ORF, or Terminator) down in order."""
         if not self.selected_item:
-            messagebox.showinfo("Select Item", "Please select an installed gene or ORF first.")
+            messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator first.")
             return
 
         item_type, item_id = self.selected_item
-        if item_type not in ('gene', 'orf'):
-            messagebox.showinfo("Select Item", "Please select an installed gene or ORF.")
+        if item_type not in ('gene', 'orf', 'terminator'):
+            messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator.")
             return
 
         if item_id not in self.game_state.installed_genes:
@@ -885,10 +986,29 @@ class BuilderModule(tk.Toplevel):
         else:
             messagebox.showerror("Error", message)
 
+    def _add_terminator(self):
+        """Add a new Terminator to installed genes."""
+        can_install, reason = self.game_state.can_install_terminator()
+        if not can_install:
+            messagebox.showerror("Cannot Add Terminator", reason)
+            return
+
+        cost = self.game_state.terminator_cost
+        if not messagebox.askyesno("Add Terminator",
+                f"Add a new Terminator for {cost} EP?\n\n"
+                "Terminators mark the end of ORFs. ORFs will stop at the next terminator."):
+            return
+
+        success, message = self.game_state.install_terminator()
+        if success:
+            self._refresh_all()
+        else:
+            messagebox.showerror("Error", message)
+
     def _remove_item(self):
-        """Remove the selected item (gene or ORF) from installed genes."""
+        """Remove the selected item (gene, ORF, or Terminator) from installed genes."""
         if not self.selected_item:
-            messagebox.showinfo("Select Item", "Please select an installed gene or ORF first.")
+            messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator first.")
             return
 
         item_type, item_id = self.selected_item
@@ -899,6 +1019,18 @@ class BuilderModule(tk.Toplevel):
                 return
 
             success, message = self.game_state.remove_orf(item_id)
+            if success:
+                self.selected_item = None
+                self._refresh_all()
+            else:
+                messagebox.showerror("Cannot Remove", message)
+
+        elif item_type == 'terminator':
+            if item_id not in self.game_state.installed_genes:
+                messagebox.showinfo("Select Terminator", "Please select a Terminator from installed genes.")
+                return
+
+            success, message = self.game_state.remove_terminator(item_id)
             if success:
                 self.selected_item = None
                 self._refresh_all()
@@ -917,7 +1049,7 @@ class BuilderModule(tk.Toplevel):
             else:
                 messagebox.showerror("Cannot Remove", message)
         else:
-            messagebox.showinfo("Select Item", "Please select an installed gene or ORF.")
+            messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator.")
 
     def _show_gene_details(self, gene: Gene):
         """Show gene details in the details panel."""
@@ -1211,9 +1343,10 @@ class BlueprintDialog(tk.Toplevel):
         self.text.insert(tk.END, "Total Length: ", "header")
         self.text.insert(tk.END, f"{gs.get_total_genome_length():,} bp\n\n", "value")
 
-        # Count actual genes (not ORFs)
-        gene_count = sum(1 for item in gs.installed_genes if not gs.is_orf(item))
+        # Count actual genes (not ORFs or terminators)
+        gene_count = sum(1 for item in gs.installed_genes if not gs.is_marker(item))
         orf_count = gs.get_installed_orf_count()
+        term_count = gs.get_installed_terminator_count()
 
         # ORF Structure
         orf_structure = gs.get_orf_structure()
@@ -1231,10 +1364,12 @@ class BlueprintDialog(tk.Toplevel):
             self.text.insert(tk.END, "\n")
 
         # Installed Genes (flat list)
-        self.text.insert(tk.END, f"Installed Genes ({gene_count} genes, {orf_count} ORFs):\n", "header")
+        self.text.insert(tk.END, f"Installed Genes ({gene_count} genes, {orf_count} ORFs, {term_count} Terminators):\n", "header")
         for item in gs.installed_genes:
             if gs.is_orf(item):
                 self.text.insert(tk.END, f"  [{item}]\n", "value")
+            elif gs.is_terminator(item):
+                self.text.insert(tk.END, f"  [STOP: {item}]\n", "value")
             else:
                 gene = gs.get_gene(item)
                 if gene:

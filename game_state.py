@@ -87,6 +87,9 @@ class GameState:
     _orf_counter: int = 0  # Counter for generating ORF names
     _total_orfs_installed: int = 0  # Total ORFs ever installed (for cost calculation)
 
+    # Terminator tracking
+    _terminator_counter: int = 0  # Counter for generating Terminator names
+
     # Virus configuration
     virus_config: VirusConfig = field(default_factory=VirusConfig)
     pending_config: Optional[VirusConfig] = None  # Config changes not yet locked in
@@ -104,6 +107,7 @@ class GameState:
     genes_offered_per_round: int = 5
     config_lock_cost: int = 10
     orf_cost: int = 20  # Cost for ORFs after the first one
+    terminator_cost: int = 10  # Cost to install a terminator
     win_threshold: int = 10000
 
     # Game status
@@ -160,7 +164,7 @@ class GameState:
     def has_utr_installed(self) -> bool:
         """Check if a UTR gene is already installed."""
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene and gene.is_utr:
                     return True
@@ -169,7 +173,7 @@ class GameState:
     def get_installed_utr_gene_id(self) -> int | None:
         """Get the ID of the installed UTR gene, or None if none installed."""
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene and gene.is_utr:
                     return item
@@ -281,6 +285,16 @@ class GameState:
         """Check if an item in installed_genes is an ORF."""
         return isinstance(item, str) and item.startswith("ORF-")
 
+    @staticmethod
+    def is_terminator(item) -> bool:
+        """Check if an item in installed_genes is a Terminator."""
+        return isinstance(item, str) and item.startswith("Term-")
+
+    @staticmethod
+    def is_marker(item) -> bool:
+        """Check if an item is an ORF or Terminator marker (not a gene)."""
+        return GameState.is_orf(item) or GameState.is_terminator(item)
+
     def get_orf_cost(self) -> int:
         """Get the cost to install the next ORF."""
         # First ORF is free, subsequent ones cost orf_cost EP
@@ -329,13 +343,50 @@ class GameState:
         self.installed_genes.remove(orf_name)
         return True, f"Removed {orf_name}"
 
+    # Terminator Management Methods
+
+    def can_install_terminator(self) -> tuple[bool, str]:
+        """Check if a Terminator can be installed."""
+        if self.terminator_cost > self.evolution_points:
+            return False, f"Not enough EP (need {self.terminator_cost}, have {self.evolution_points})"
+        return True, "OK"
+
+    def install_terminator(self) -> tuple[bool, str]:
+        """Install a new Terminator. Returns (success, message)."""
+        can_install, reason = self.can_install_terminator()
+        if not can_install:
+            return False, reason
+
+        # Pay the cost
+        self.evolution_points -= self.terminator_cost
+
+        # Generate Terminator name
+        self._terminator_counter += 1
+        term_name = f"Term-{self._terminator_counter}"
+
+        # Add to installed list
+        self.installed_genes.append(term_name)
+
+        return True, f"Added {term_name} for {self.terminator_cost} EP"
+
+    def remove_terminator(self, term_name: str) -> tuple[bool, str]:
+        """Remove a Terminator from installed genes. Free removal."""
+        if not self.is_terminator(term_name):
+            return False, "Not a valid Terminator"
+
+        if term_name not in self.installed_genes:
+            return False, "Terminator not installed"
+
+        self.installed_genes.remove(term_name)
+        return True, f"Removed {term_name} (free)"
+
     def move_item_up(self, item) -> bool:
-        """Move an installed item (gene or ORF) up in the order."""
+        """Move an installed item (gene, ORF, or Terminator) up in the order."""
         if item not in self.installed_genes:
             return False
 
         # UTR genes cannot be moved - they must stay at position 0
-        if not self.is_orf(item):
+        if not self.is_marker(item):
             gene = self.get_gene(item)
             if gene and gene.is_utr:
                 return False
@@ -346,7 +397,7 @@ class GameState:
 
         # Don't allow moving past UTR gene at position 0
         prev_item = self.installed_genes[idx - 1]
-        if not self.is_orf(prev_item):
+        if not self.is_marker(prev_item):
             prev_gene = self.get_gene(prev_item)
             if prev_gene and prev_gene.is_utr:
                 return False  # Cannot move past UTR
@@ -357,12 +408,12 @@ class GameState:
         return True
 
     def move_item_down(self, item) -> bool:
-        """Move an installed item (gene or ORF) down in the order."""
+        """Move an installed item (gene, ORF, or Terminator) down in the order."""
         if item not in self.installed_genes:
             return False
 
         # UTR genes cannot be moved - they must stay at position 0 (5' end)
-        if not self.is_orf(item):
+        if not self.is_marker(item):
             gene = self.get_gene(item)
             if gene and gene.is_utr:
                 return False
@@ -379,52 +430,62 @@ class GameState:
     def get_orf_structure(self) -> list[dict]:
         """Get the ORF structure showing which genes belong to which ORF.
 
+        ORFs now extend from their position to either:
+        - The next Terminator in the list, OR
+        - The end of the list if no Terminator follows
+
+        This means ORFs can now overlap if there's no Terminator between them.
+
         Returns a list of dicts, each containing:
         - 'orf': The ORF name (e.g., "ORF-1")
         - 'genes': List of gene IDs under this ORF
         - 'start_idx': Index in installed_genes where this ORF starts
-        - 'end_idx': Index where the next ORF starts (or end of list)
+        - 'end_idx': Index where this ORF ends (at Terminator or end of list)
 
         Only includes ORFs that have at least one gene.
         """
         structure = []
-        current_orf = None
-        current_genes = []
-        start_idx = 0
 
+        # Find all ORF positions
+        orf_positions = []
         for idx, item in enumerate(self.installed_genes):
             if self.is_orf(item):
-                # Save previous ORF if it has genes
-                if current_orf is not None and current_genes:
-                    structure.append({
-                        'orf': current_orf,
-                        'genes': current_genes,
-                        'start_idx': start_idx,
-                        'end_idx': idx
-                    })
-                # Start new ORF
-                current_orf = item
-                current_genes = []
-                start_idx = idx
-            else:
-                # It's a gene
-                if current_orf is not None:
-                    current_genes.append(item)
+                orf_positions.append((idx, item))
 
-        # Don't forget the last ORF
-        if current_orf is not None and current_genes:
-            structure.append({
-                'orf': current_orf,
-                'genes': current_genes,
-                'start_idx': start_idx,
-                'end_idx': len(self.installed_genes)
-            })
+        # For each ORF, find genes until next Terminator or end of list
+        for orf_idx, orf_name in orf_positions:
+            genes = []
+            end_idx = len(self.installed_genes)
+
+            # Collect genes from after this ORF until we hit a Terminator or end
+            for idx in range(orf_idx + 1, len(self.installed_genes)):
+                item = self.installed_genes[idx]
+                if self.is_terminator(item):
+                    end_idx = idx
+                    break
+                elif not self.is_orf(item):
+                    # It's a gene - add it
+                    genes.append(item)
+                # If it's another ORF, we continue (ORFs can overlap)
+
+            # Only include ORFs that have at least one gene
+            if genes:
+                structure.append({
+                    'orf': orf_name,
+                    'genes': genes,
+                    'start_idx': orf_idx,
+                    'end_idx': end_idx
+                })
 
         return structure
 
     def get_installed_orf_count(self) -> int:
         """Get the number of ORFs currently installed."""
         return sum(1 for item in self.installed_genes if self.is_orf(item))
+
+    def get_installed_terminator_count(self) -> int:
+        """Get the number of Terminators currently installed."""
+        return sum(1 for item in self.installed_genes if self.is_terminator(item))
 
     def can_lock_config(self) -> tuple[bool, str]:
         """Check if config can be locked in."""
@@ -465,7 +526,7 @@ class GameState:
         """Calculate total genome length from installed genes."""
         total = 0
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene:
                     total += gene.length
@@ -478,7 +539,7 @@ class GameState:
         """
         types = set()
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene and gene.gene_type_entity_id is not None:
                     type_name = self.database.get_gene_type_name(gene)
@@ -490,7 +551,7 @@ class GameState:
         """Get all protein entity IDs enabled by installed genes."""
         ids = set()
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene and gene.gene_type_entity_id is not None:
                     ids.add(gene.gene_type_entity_id)
@@ -519,7 +580,7 @@ class GameState:
         """Get set of installed gene IDs that are incompatible with current genome type."""
         incompatible = set()
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene and not self.is_gene_genome_compatible(gene):
                     incompatible.add(gene.id)
@@ -626,7 +687,7 @@ class GameState:
         """
         effect_ids = set()
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene:
                     # Skip effects from genes with incompatible genome type
@@ -698,7 +759,7 @@ class GameState:
         # Get the valid gene effects first (needed for modify effect filtering)
         gene_effect_ids = set()
         for item in self.installed_genes:
-            if not self.is_orf(item):
+            if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene:
                     gene_effect_ids.update(gene.effect_ids)
