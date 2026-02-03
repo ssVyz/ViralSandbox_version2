@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6c0d9d56-d4bd-4466-9054-e5b44d5f0579" name="Changes" comment="Genome requirement added">
+    <list default="true" id="6c0d9d56-d4bd-4466-9054-e5b44d5f0579" name="Changes" comment="added readme">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game_state.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/play_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/play_module.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,6 +23,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;ssVyz&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/ssVyz/ViralSandbox_version2.git&quot;,
+    &quot;accountId&quot;: &quot;2e9e1c07-788d-4116-9b7a-ec2115e6fd4f&quot;
+  }
+}</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
 }</component>
@@ -36,7 +48,7 @@
   &quot;keyToString&quot;: {
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;
   }
 }</component>
   <component name="SharedIndexes">
@@ -159,7 +171,23 @@
       <option name="project" value="LOCAL" />
       <updated>1770013415117</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="UTR behavior">
+      <option name="closed" value="true" />
+      <created>1770013961583</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1770013961583</updated>
+    </task>
+    <task id="LOCAL-00015" summary="added readme">
+      <option name="closed" value="true" />
+      <created>1770014619174</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1770014619174</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -175,6 +203,8 @@
     <MESSAGE value="abbreviations" />
     <MESSAGE value="small changes" />
     <MESSAGE value="Genome requirement added" />
-    <option name="LAST_COMMIT_MESSAGE" value="Genome requirement added" />
+    <MESSAGE value="UTR behavior" />
+    <MESSAGE value="added readme" />
+    <option name="LAST_COMMIT_MESSAGE" value="added readme" />
   </component>
 </project>

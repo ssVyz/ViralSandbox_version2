@@ -214,15 +214,17 @@ class PlayModule(tk.Toplevel):
         bars_frame = ttk.Frame(top_frame)
         bars_frame.pack(side=tk.RIGHT, padx=10)
 
-        # Interferon bar
+        # Interferon bar (using Canvas for dynamic color)
         ifn_frame = ttk.Frame(bars_frame)
         ifn_frame.pack(fill=tk.X, pady=2)
 
         ttk.Label(ifn_frame, text="Interferon:", width=12).pack(side=tk.LEFT)
-        self.ifn_var = tk.StringVar(value="0.0")
-        self.ifn_bar = ttk.Progressbar(ifn_frame, length=200, maximum=100)
-        self.ifn_bar.pack(side=tk.LEFT, padx=5)
-        ttk.Label(ifn_frame, textvariable=self.ifn_var, width=8).pack(side=tk.LEFT)
+        self.ifn_var = tk.StringVar(value="0")
+        self.ifn_canvas = tk.Canvas(ifn_frame, width=200, height=20, bg='#e0e0e0',
+                                    highlightthickness=1, highlightbackground='#999999')
+        self.ifn_canvas.pack(side=tk.LEFT, padx=5)
+        self.ifn_bar_rect = self.ifn_canvas.create_rectangle(0, 0, 0, 20, fill='#4caf50', outline='')
+        ttk.Label(ifn_frame, textvariable=self.ifn_var, width=12).pack(side=tk.LEFT)
 
         # Antibody bar
         ab_frame = ttk.Frame(bars_frame)
@@ -260,35 +262,68 @@ class PlayModule(tk.Toplevel):
         frame = ttk.LabelFrame(parent, text="Population Over Time")
         frame.pack(fill=tk.X, pady=(0, 5))
 
-        self.graph_canvas = tk.Canvas(frame, height=200, bg='white')
-        self.graph_canvas.pack(fill=tk.X, padx=5, pady=5)
+        # Main container with graph on left and controls on right
+        main_frame = ttk.Frame(frame)
+        main_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        # Legend
-        legend_frame = ttk.Frame(frame)
-        legend_frame.pack(fill=tk.X, padx=5, pady=(0, 5))
+        # Graph canvas (left side)
+        self.graph_canvas = tk.Canvas(main_frame, height=200, bg='white')
+        self.graph_canvas.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
+        # Controls frame (right side)
+        controls_frame = ttk.Frame(main_frame, width=120)
+        controls_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(5, 0))
+        controls_frame.pack_propagate(False)
+
+        # Display window dropdown
+        ttk.Label(controls_frame, text="Display:", font=('TkDefaultFont', 9)).pack(anchor='w')
+        self.graph_window_var = tk.StringVar(value="50")
+        window_combo = ttk.Combobox(controls_frame, textvariable=self.graph_window_var,
+                                     values=["10", "50", "100", "200", "All"],
+                                     state='readonly', width=8)
+        window_combo.pack(anchor='w', pady=(0, 10))
+        window_combo.bind('<<ComboboxSelected>>', lambda e: self._draw_graph())
+
+        # Filter section
+        ttk.Label(controls_frame, text="Show:", font=('TkDefaultFont', 9)).pack(anchor='w')
+
+        # Category filter checkboxes
+        self.graph_filters = {}
         colors = [('Virion', 'purple'), ('RNA', 'green'),
                   ('DNA', 'blue'), ('Protein', 'orange')]
         for name, color in colors:
-            ttk.Label(legend_frame, text="■", foreground=color).pack(side=tk.LEFT)
-            ttk.Label(legend_frame, text=name).pack(side=tk.LEFT, padx=(0, 10))
+            var = tk.BooleanVar(value=True)
+            self.graph_filters[name] = var
+            cb_frame = ttk.Frame(controls_frame)
+            cb_frame.pack(anchor='w')
+            cb = ttk.Checkbutton(cb_frame, variable=var, command=self._draw_graph)
+            cb.pack(side=tk.LEFT)
+            ttk.Label(cb_frame, text="■", foreground=color).pack(side=tk.LEFT)
+            ttk.Label(cb_frame, text=name, font=('TkDefaultFont', 8)).pack(side=tk.LEFT)
 
     def _create_controls(self, parent):
         """Create the simulation control section."""
         frame = ttk.LabelFrame(parent, text="Simulation Controls")
         frame.pack(fill=tk.X, pady=(0, 5))
 
-        # Speed controls
-        speed_frame = ttk.Frame(frame)
-        speed_frame.pack(fill=tk.X, padx=5, pady=5)
+        # Run/Stop button and speed controls on same row
+        control_frame = ttk.Frame(frame)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        self.speed_var = tk.StringVar(value="paused")
+        # Run/Stop button (using tk.Button for color support)
+        self.run_stop_btn = tk.Button(control_frame, text="Run", width=8,
+                                       bg='#4caf50', fg='white', font=('TkDefaultFont', 10, 'bold'),
+                                       activebackground='#45a049', activeforeground='white',
+                                       command=self._toggle_simulation)
+        self.run_stop_btn.pack(side=tk.LEFT, padx=(0, 10))
 
-        speeds = [("⏸ Pause", "paused"), ("▶ Normal", "normal"),
-                  ("▶▶ Fast", "fast"), ("⏩ Max", "max")]
+        # Speed selection
+        ttk.Label(control_frame, text="Speed:").pack(side=tk.LEFT, padx=(0, 5))
+        self.speed_var = tk.StringVar(value="normal")
 
+        speeds = [("Normal", "normal"), ("Fast", "fast"), ("Max", "max")]
         for text, value in speeds:
-            ttk.Radiobutton(speed_frame, text=text, variable=self.speed_var,
+            ttk.Radiobutton(control_frame, text=text, variable=self.speed_var,
                            value=value, command=self._on_speed_change).pack(side=tk.LEFT, padx=2)
 
         # Action buttons
@@ -301,7 +336,7 @@ class PlayModule(tk.Toplevel):
                    command=self._request_end_round).pack(side=tk.LEFT, padx=2)
 
         # Status
-        self.status_var = tk.StringVar(value="Paused - Select speed to start")
+        self.status_var = tk.StringVar(value="Paused - Click Run to start")
         ttk.Label(frame, textvariable=self.status_var,
                   font=('TkDefaultFont', 10, 'italic')).pack(padx=5, pady=5)
 
@@ -371,20 +406,58 @@ class PlayModule(tk.Toplevel):
 
             self.milestone_labels[milestone.id] = (lbl, name_lbl)
 
-    def _on_speed_change(self):
-        """Handle speed control change."""
-        speed = self.speed_var.get()
-        self.sim_state.speed = speed
+    def _toggle_simulation(self):
+        """Toggle simulation between running and paused."""
+        if self.sim_state.is_running:
+            # Stop the simulation
+            self._stop_simulation()
+        else:
+            # Start the simulation
+            self._start_simulation()
+
+    def _start_simulation(self):
+        """Start the simulation."""
+        if self.sim_state.is_ended:
+            return
+
+        self.sim_state.is_running = True
+        self.sim_state.speed = self.speed_var.get()
+
+        # Update button to red "Stop"
+        self.run_stop_btn.config(text="Stop", bg='#f44336',
+                                  activebackground='#d32f2f')
+
+        speed_text = self.speed_var.get().capitalize()
+        self.status_var.set(f"Running ({speed_text})")
+        self._schedule_next_turn()
+
+    def _stop_simulation(self):
+        """Stop/pause the simulation."""
+        self.sim_state.is_running = False
 
         if self.sim_timer:
             self.after_cancel(self.sim_timer)
             self.sim_timer = None
 
-        if speed == "paused":
-            self.status_var.set("Paused")
-            self.sim_state.is_running = False
-        else:
-            self.sim_state.is_running = True
+        # Update button to green "Run"
+        self.run_stop_btn.config(text="Run", bg='#4caf50',
+                                  activebackground='#45a049')
+
+        self.status_var.set("Paused")
+
+    def _on_speed_change(self):
+        """Handle speed control change."""
+        speed = self.speed_var.get()
+        self.sim_state.speed = speed
+
+        # If running, update the status and reschedule with new speed
+        if self.sim_state.is_running:
+            if self.sim_timer:
+                self.after_cancel(self.sim_timer)
+                self.sim_timer = None
+
+            speed_text = speed.capitalize()
+            self.status_var.set(f"Running ({speed_text})")
             self._schedule_next_turn()
 
     def _schedule_next_turn(self):
@@ -591,7 +664,7 @@ class PlayModule(tk.Toplevel):
         ifn_prod = ifn_prod * (modifier.get('interferon', 100) / 100) * (cat_modifier.get('interferon', 100) / 100)
         if ifn_prod > 0:
             self.sim_state.interferon_level += ifn_prod * successes
-            self.sim_state.interferon_level = min(100, self.sim_state.interferon_level)
+            self.sim_state.interferon_level = min(100000, self.sim_state.interferon_level)
 
         # Apply antibody response with multiplicative modifiers
         ab_resp = effect.antibody_response
@@ -831,8 +904,8 @@ class PlayModule(tk.Toplevel):
                 # Get per-category interferon modifier (% increase at max interferon)
                 ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
                 # Calculate actual modifier: scales linearly with interferon level
-                # At interferon 100 and modifier 100%, this equals 1.0 (doubles the chance)
-                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100.0)
+                # At interferon 100000 and modifier 100%, this equals 1.0 (doubles the chance)
+                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100000.0)
                 adjusted_chance = base_chance * (1 + actual_modifier)
                 # Cap at 100%
                 adjusted_chance = min(100.0, adjusted_chance)
@@ -863,7 +936,7 @@ class PlayModule(tk.Toplevel):
             # Apply interferon effect (only affects intracellular locations)
             if location != CellLocation.EXTRACELLULAR.value and interferon_level > 0:
                 ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
-                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100.0)
+                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100000.0)
                 adjusted_chance = base_chance * (1 + actual_modifier)
                 adjusted_chance = min(100.0, adjusted_chance)
             else:
@@ -938,7 +1011,7 @@ class PlayModule(tk.Toplevel):
         # Apply interferon effect
         if interferon_level > 0:
             ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
-            actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100.0)
+            actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100000.0)
             adjusted_chance = base_chance * (1 + actual_modifier)
             adjusted_chance = min(100.0, adjusted_chance)
         else:
@@ -1221,8 +1294,7 @@ class PlayModule(tk.Toplevel):
         self.virion_count_var.set(str(virions))
 
         # Update status bars
-        self.ifn_bar['value'] = self.sim_state.interferon_level
-        self.ifn_var.set(f"{self.sim_state.interferon_level:.1f}")
+        self._update_interferon_bar()
 
         stored = self.sim_state.antibody_stored
         active = self.sim_state.antibody_active
@@ -1234,6 +1306,43 @@ class PlayModule(tk.Toplevel):
 
         # Draw graph
         self._draw_graph()
+
+    def _update_interferon_bar(self):
+        """Update the interferon bar with dynamic color based on level."""
+        level = self.sim_state.interferon_level
+        max_level = 100000
+
+        # Calculate bar width (0 to 200 pixels)
+        bar_width = int((level / max_level) * 200)
+        bar_width = max(0, min(200, bar_width))
+
+        # Calculate color: green (low) -> orange (mid) -> red (high)
+        # Normalize level to 0-1 range
+        ratio = level / max_level
+
+        if ratio <= 0.5:
+            # Green to orange (0% to 50%)
+            # Green: #4caf50 (76, 175, 80) -> Orange: #ff9800 (255, 152, 0)
+            t = ratio * 2  # 0 to 1 over first half
+            r = int(76 + (255 - 76) * t)
+            g = int(175 + (152 - 175) * t)
+            b = int(80 + (0 - 80) * t)
+        else:
+            # Orange to red (50% to 100%)
+            # Orange: #ff9800 (255, 152, 0) -> Red: #f44336 (244, 67, 54)
+            t = (ratio - 0.5) * 2  # 0 to 1 over second half
+            r = int(255 + (244 - 255) * t)
+            g = int(152 + (67 - 152) * t)
+            b = int(0 + (54 - 0) * t)
+
+        color = f'#{r:02x}{g:02x}{b:02x}'
+
+        # Update the canvas
+        self.ifn_canvas.coords(self.ifn_bar_rect, 0, 0, bar_width, 20)
+        self.ifn_canvas.itemconfig(self.ifn_bar_rect, fill=color)
+
+        # Update the label
+        self.ifn_var.set(f"{level:,.0f}")
 
     def _draw_entity_bars(self):
         """Draw entity bars on the canvas."""
@@ -1370,7 +1479,7 @@ class PlayModule(tk.Toplevel):
             height = 200
 
         margin_left = 45
-        margin_right = 20
+        margin_right = 10
         margin_top = 15
         margin_bottom = 35  # More space for x-axis labels
         graph_width = width - margin_left - margin_right
@@ -1379,14 +1488,23 @@ class PlayModule(tk.Toplevel):
         if len(self.sim_state.history) < 2:
             return
 
-        # Get last 50 turns of history
-        history = self.sim_state.history[-50:]
+        # Get display window from dropdown
+        window_setting = self.graph_window_var.get()
+        if window_setting == "All":
+            history = self.sim_state.history[:]
+        else:
+            window_size = int(window_setting)
+            history = self.sim_state.history[-window_size:]
 
-        # Find max value and add 5% padding so lines don't touch the top
+        # Get enabled categories from filter
+        enabled_categories = [cat for cat, var in self.graph_filters.items() if var.get()]
+
+        # Find max value only for enabled categories, add 5% padding
         max_val = 10
         for turn, counts in history:
             for cat, count in counts.items():
-                max_val = max(max_val, count)
+                if cat in enabled_categories:
+                    max_val = max(max_val, count)
         max_val = int(max_val * 1.05) + 1  # Add 5% padding
 
         # Get turn range for x-axis labels
@@ -1408,30 +1526,31 @@ class PlayModule(tk.Toplevel):
         self.graph_canvas.create_text(margin_left - 5, margin_top + graph_height // 2,
                                        text=str(max_val // 2), anchor='e', font=('TkDefaultFont', 8))
 
-        # Draw X-axis labels (turn numbers in 5-turn increments)
+        # Draw X-axis labels (always 10 labels, dynamically spaced)
         if last_turn > first_turn:
-            # Find first turn that's a multiple of 5
-            start_label = ((first_turn // 5) + 1) * 5
-            for turn_label in range(start_label, last_turn + 1, 5):
-                # Calculate x position for this turn
-                turn_index = turn_label - first_turn
-                if turn_index >= 0 and turn_index <= (last_turn - first_turn):
-                    x = margin_left + (turn_index / max(1, last_turn - first_turn)) * graph_width
-                    self.graph_canvas.create_text(x, height - margin_bottom + 12,
-                                                   text=str(turn_label), anchor='n',
-                                                   font=('TkDefaultFont', 8))
-                    # Small tick mark
-                    self.graph_canvas.create_line(x, height - margin_bottom,
-                                                   x, height - margin_bottom + 3, fill='gray')
+            turn_range = last_turn - first_turn
+            num_labels = 10
+            for i in range(num_labels + 1):
+                turn_label = first_turn + int(i * turn_range / num_labels)
+                x = margin_left + (i / num_labels) * graph_width
+                self.graph_canvas.create_text(x, height - margin_bottom + 12,
+                                               text=str(turn_label), anchor='n',
+                                               font=('TkDefaultFont', 8))
+                # Small tick mark
+                self.graph_canvas.create_line(x, height - margin_bottom,
+                                               x, height - margin_bottom + 3, fill='gray')
 
         # X-axis label
         self.graph_canvas.create_text(margin_left + graph_width // 2, height - 5,
                                        text="Turn", anchor='n', font=('TkDefaultFont', 8))
 
-        # Draw lines for each category
+        # Draw lines for each enabled category
         colors = {'Virion': 'purple', 'RNA': 'green', 'DNA': 'blue', 'Protein': 'orange'}
 
         for category, color in colors.items():
+            if category not in enabled_categories:
+                continue
+
             points = []
             for i, (turn, counts) in enumerate(history):
                 x = margin_left + (i / max(1, len(history) - 1)) * graph_width
