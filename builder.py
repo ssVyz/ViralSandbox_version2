@@ -944,7 +944,11 @@ class BuilderModule(tk.Toplevel):
             messagebox.showinfo("Select Item", "Please select an item from installed genes.")
             return
 
-        if self.game_state.move_item_up(item_id):
+        moved, rename_map = self.game_state.move_item_up(item_id)
+        if moved:
+            # Update selection if the selected marker was renamed
+            if item_id in rename_map:
+                self.selected_item = (item_type, rename_map[item_id])
             self._update_installed_genes()
             self._update_genome_visual()
 
@@ -963,7 +967,11 @@ class BuilderModule(tk.Toplevel):
             messagebox.showinfo("Select Item", "Please select an item from installed genes.")
             return
 
-        if self.game_state.move_item_down(item_id):
+        moved, rename_map = self.game_state.move_item_down(item_id)
+        if moved:
+            # Update selection if the selected marker was renamed
+            if item_id in rename_map:
+                self.selected_item = (item_type, rename_map[item_id])
             self._update_installed_genes()
             self._update_genome_visual()
 
@@ -1018,7 +1026,7 @@ class BuilderModule(tk.Toplevel):
                 messagebox.showinfo("Select ORF", "Please select an ORF from installed genes.")
                 return
 
-            success, message = self.game_state.remove_orf(item_id)
+            success, message, _rename_map = self.game_state.remove_orf(item_id)
             if success:
                 self.selected_item = None
                 self._refresh_all()
@@ -1030,7 +1038,7 @@ class BuilderModule(tk.Toplevel):
                 messagebox.showinfo("Select Terminator", "Please select a Terminator from installed genes.")
                 return
 
-            success, message = self.game_state.remove_terminator(item_id)
+            success, message, _rename_map = self.game_state.remove_terminator(item_id)
             if success:
                 self.selected_item = None
                 self._refresh_all()

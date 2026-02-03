@@ -320,7 +320,7 @@ class GameState:
         # Pay the cost
         self.evolution_points -= cost
 
-        # Generate ORF name
+        # Generate temporary ORF name (will be renumbered)
         self._orf_counter += 1
         self._total_orfs_installed += 1
         orf_name = f"ORF-{self._orf_counter}"
@@ -328,20 +328,32 @@ class GameState:
         # Add to installed list
         self.installed_genes.append(orf_name)
 
-        if cost == 0:
-            return True, f"Added {orf_name} (free)"
-        return True, f"Added {orf_name} for {cost} EP"
+        # Renumber to ensure correct sequential naming
+        self.renumber_markers()
 
-    def remove_orf(self, orf_name: str) -> tuple[bool, str]:
-        """Remove an ORF from installed genes. No cost refund."""
+        # Get the actual name after renumbering (it's the last ORF)
+        orf_count = self.get_installed_orf_count()
+        actual_name = f"ORF-{orf_count}"
+
+        if cost == 0:
+            return True, f"Added {actual_name} (free)"
+        return True, f"Added {actual_name} for {cost} EP"
+
+    def remove_orf(self, orf_name: str) -> tuple[bool, str, dict]:
+        """Remove an ORF from installed genes. No cost refund.
+
+        Returns (success, message, rename_map) where rename_map contains
+        any markers that were renamed due to renumbering.
+        """
         if not self.is_orf(orf_name):
-            return False, "Not a valid ORF"
+            return False, "Not a valid ORF", {}
 
         if orf_name not in self.installed_genes:
-            return False, "ORF not installed"
+            return False, "ORF not installed", {}
 
         self.installed_genes.remove(orf_name)
-        return True, f"Removed {orf_name}"
+        rename_map = self.renumber_markers()
+        return True, f"Removed {orf_name}", rename_map
 
     # Terminator Management Methods
 
@@ -360,72 +372,126 @@ class GameState:
         # Pay the cost
         self.evolution_points -= self.terminator_cost
 
-        # Generate Terminator name
+        # Generate temporary Terminator name (will be renumbered)
         self._terminator_counter += 1
         term_name = f"Term-{self._terminator_counter}"
 
         # Add to installed list
         self.installed_genes.append(term_name)
 
-        return True, f"Added {term_name} for {self.terminator_cost} EP"
+        # Renumber to ensure correct sequential naming
+        self.renumber_markers()
 
-    def remove_terminator(self, term_name: str) -> tuple[bool, str]:
-        """Remove a Terminator from installed genes. Free removal."""
+        # Get the actual name after renumbering (it's the last Terminator)
+        term_count = self.get_installed_terminator_count()
+        actual_name = f"Term-{term_count}"
+
+        return True, f"Added {actual_name} for {self.terminator_cost} EP"
+
+    def remove_terminator(self, term_name: str) -> tuple[bool, str, dict]:
+        """Remove a Terminator from installed genes. Free removal.
+
+        Returns (success, message, rename_map) where rename_map contains
+        any markers that were renamed due to renumbering.
+        """
         if not self.is_terminator(term_name):
-            return False, "Not a valid Terminator"
+            return False, "Not a valid Terminator", {}
 
         if term_name not in self.installed_genes:
-            return False, "Terminator not installed"
+            return False, "Terminator not installed", {}
 
         self.installed_genes.remove(term_name)
-        return True, f"Removed {term_name} (free)"
+        rename_map = self.renumber_markers()
+        return True, f"Removed {term_name} (free)", rename_map
 
-    def move_item_up(self, item) -> bool:
-        """Move an installed item (gene, ORF, or Terminator) up in the order."""
+    def renumber_markers(self) -> dict:
+        """Renumber all ORFs and Terminators based on their position in the list.
+
+        This ensures ORF-1 is always the first ORF, ORF-2 is the second, etc.
+        Same for Terminators.
+
+        Returns a mapping of old names to new names for updating references.
+        """
+        rename_map = {}
+        orf_count = 0
+        term_count = 0
+
+        for idx, item in enumerate(self.installed_genes):
+            if self.is_orf(item):
+                orf_count += 1
+                new_name = f"ORF-{orf_count}"
+                if item != new_name:
+                    rename_map[item] = new_name
+                    self.installed_genes[idx] = new_name
+            elif self.is_terminator(item):
+                term_count += 1
+                new_name = f"Term-{term_count}"
+                if item != new_name:
+                    rename_map[item] = new_name
+                    self.installed_genes[idx] = new_name
+
+        return rename_map
+
+    def move_item_up(self, item) -> tuple[bool, dict]:
+        """Move an installed item (gene, ORF, or Terminator) up in the order.
+
+        Returns (moved, rename_map) where rename_map contains any markers
+        that were renamed due to renumbering after the move.
+        """
         if item not in self.installed_genes:
-            return False
+            return False, {}
 
         # UTR genes cannot be moved - they must stay at position 0
         if not self.is_marker(item):
             gene = self.get_gene(item)
             if gene and gene.is_utr:
-                return False
+                return False, {}
 
         idx = self.installed_genes.index(item)
         if idx == 0:
-            return False  # Already at top
+            return False, {}  # Already at top
 
         # Don't allow moving past UTR gene at position 0
         prev_item = self.installed_genes[idx - 1]
         if not self.is_marker(prev_item):
             prev_gene = self.get_gene(prev_item)
             if prev_gene and prev_gene.is_utr:
-                return False  # Cannot move past UTR
+                return False, {}  # Cannot move past UTR
 
         # Swap with previous item
         self.installed_genes[idx], self.installed_genes[idx - 1] = \
             self.installed_genes[idx - 1], self.installed_genes[idx]
-        return True
 
-    def move_item_down(self, item) -> bool:
-        """Move an installed item (gene, ORF, or Terminator) down in the order."""
+        # Renumber markers after move
+        rename_map = self.renumber_markers()
+        return True, rename_map
+
+    def move_item_down(self, item) -> tuple[bool, dict]:
+        """Move an installed item (gene, ORF, or Terminator) down in the order.
+
+        Returns (moved, rename_map) where rename_map contains any markers
+        that were renamed due to renumbering after the move.
+        """
         if item not in self.installed_genes:
-            return False
+            return False, {}
 
         # UTR genes cannot be moved - they must stay at position 0 (5' end)
         if not self.is_marker(item):
             gene = self.get_gene(item)
             if gene and gene.is_utr:
-                return False
+                return False, {}
 
         idx = self.installed_genes.index(item)
         if idx >= len(self.installed_genes) - 1:
-            return False  # Already at bottom
+            return False, {}  # Already at bottom
 
         # Swap with next item
         self.installed_genes[idx], self.installed_genes[idx + 1] = \
             self.installed_genes[idx + 1], self.installed_genes[idx]
-        return True
+
+        # Renumber markers after move
+        rename_map = self.renumber_markers()
+        return True, rename_map
 
     def get_orf_structure(self) -> list[dict]:
         """Get the ORF structure showing which genes belong to which ORF.
