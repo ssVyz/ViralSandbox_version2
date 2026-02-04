@@ -1,6 +1,6 @@
 {
-  "db_version": 22,
-  "last_modified": "2026-02-04T07:54:38",
+  "db_version": 29,
+  "last_modified": "2026-02-04T10:00:51",
   "entities": [
     {
       "id": 1,
@@ -61,25 +61,9 @@
     {
       "id": 8,
       "name": "Bound Virion",
-      "category": "Viral complex",
+      "category": "Virion",
       "entity_type": "None",
-      "description": "A virion bound to the cell membrane",
-      "abbreviation": ""
-    },
-    {
-      "id": 9,
-      "name": "Endocytosed Virion",
-      "category": "Viral complex",
-      "entity_type": "None",
-      "description": "A virion inside an endosome",
-      "abbreviation": ""
-    },
-    {
-      "id": 10,
-      "name": "Viral mRNA",
-      "category": "RNA",
-      "entity_type": "None",
-      "description": "Messenger RNA for viral protein synthesis",
+      "description": "A virion bound to receptor.",
       "abbreviation": ""
     },
     {
@@ -112,7 +96,7 @@
       "category": "Protein",
       "entity_type": "DNA Polymerase",
       "description": "Viral DNA Polymerase. Compies DNA.",
-      "abbreviation": ""
+      "abbreviation": "pol"
     },
     {
       "id": 15,
@@ -137,6 +121,14 @@
       "entity_type": "None",
       "description": "Partly unpacked virion",
       "abbreviation": ""
+    },
+    {
+      "id": 18,
+      "name": "Replication Co-factor",
+      "category": "Protein",
+      "entity_type": "Replication Co-factor",
+      "description": "Protein interacting with viral replication. e.g. VPg",
+      "abbreviation": "rep"
     }
   ],
   "effects": [
@@ -145,7 +137,7 @@
       "name": "Translation of viral proteins",
       "effect_type": "Translation",
       "category": "",
-      "description": "Standard translation in a cell",
+      "description": "Spontaneous translation of viral positive sense RNA. Should be modified or complemented with other mechanisms. Can use any ORF.",
       "is_global": true,
       "inputs": [],
       "outputs": [],
@@ -173,33 +165,6 @@
       "self_cleavage_chance": 0.0
     },
     {
-      "id": 6,
-      "name": "Capsid binds to membrane",
-      "effect_type": "Change location",
-      "category": "",
-      "description": "Unenveloped virus binding to cell membrane",
-      "is_global": false,
-      "inputs": [],
-      "outputs": [],
-      "chance": 100.0,
-      "interferon_production": 0.0,
-      "antibody_response": 0.0,
-      "requires_genome_type": "",
-      "target_effect_id": null,
-      "target_category": "",
-      "chance_modifier": 0.0,
-      "interferon_modifier": 0.0,
-      "antibody_modifier": 0.0,
-      "source_location": "Extracellular",
-      "target_location": "Membrane",
-      "affected_entity_id": 2,
-      "location_change_chance": 20.0,
-      "templates": [],
-      "translation_chance": 100.0,
-      "orf_targeting": "Random ORF",
-      "self_cleavage_chance": 0.0
-    },
-    {
       "id": 7,
       "name": "Direct genome release",
       "effect_type": "Transition",
@@ -208,7 +173,7 @@
       "is_global": false,
       "inputs": [
         {
-          "entity_id": 2,
+          "entity_id": 8,
           "amount": 1,
           "location": "Membrane",
           "consumed": true
@@ -268,7 +233,7 @@
           "location": "Cytosol"
         }
       ],
-      "chance": 50.0,
+      "chance": 30.0,
       "interferon_production": 0.5,
       "antibody_response": 0.0,
       "requires_genome_type": "",
@@ -314,7 +279,7 @@
           "location": "Cytosol"
         }
       ],
-      "chance": 50.0,
+      "chance": 30.0,
       "interferon_production": 0.5,
       "antibody_response": 0.0,
       "requires_genome_type": "",
@@ -477,7 +442,7 @@
       "name": "IRES mediated protein synthesis",
       "effect_type": "Translation",
       "category": "",
-      "description": "IRES greatly enhances gene expression",
+      "description": "IRES based gene expression. Only uses ORF-1",
       "is_global": false,
       "inputs": [],
       "outputs": [],
@@ -506,10 +471,10 @@
     },
     {
       "id": 15,
-      "name": "Degradation of eIF4",
+      "name": "Repression of host signaling",
       "effect_type": "Modify effect",
       "category": "",
-      "description": "Shut down of host protein synthesis.",
+      "description": "Shut down of host protein synthesis. Reduces the impact of antiviral response.",
       "is_global": false,
       "inputs": [],
       "outputs": [],
@@ -530,6 +495,73 @@
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
       "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 16,
+      "name": "Shutoff of host protein translation",
+      "effect_type": "Modify effect",
+      "category": "",
+      "description": "eIF4 based ribosome function is disrupted by viral proteases.",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": 5,
+      "target_category": "",
+      "chance_modifier": 20.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 17,
+      "name": "Capsid mediated receptor binding",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Capsid acts as a receptor ligand for binding to the plasma membrane.",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 2,
+          "amount": 1,
+          "location": "Extracellular",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 8,
+          "amount": 1,
+          "location": "Membrane"
+        }
+      ],
+      "chance": 15.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
     }
   ],
   "genes": [
@@ -541,10 +573,10 @@
       "length": 1500,
       "gene_type_entity_id": 12,
       "effect_ids": [
-        6,
         7,
         10,
-        11
+        11,
+        17
       ],
       "description": "Enterovirus capsid proteins.",
       "is_utr": false,
@@ -560,7 +592,8 @@
       "gene_type_entity_id": null,
       "effect_ids": [
         12,
-        15
+        15,
+        16
       ],
       "description": "Enterovirus 2A Protease. Also responsible for shutting of cap dependent translation.",
       "is_utr": false,
@@ -720,25 +753,25 @@
       "Extracellular": 80.0,
       "Membrane": 80.0,
       "Endosome": 30.0,
-      "ER": 30.0,
-      "Cytosol": 30.0,
+      "ER": 15.0,
+      "Cytosol": 15.0,
       "Nucleus": 15.0
     },
     "Protein": {
       "Extracellular": 50.0,
       "Membrane": 50.0,
       "Endosome": 15.0,
-      "ER": 15.0,
-      "Cytosol": 20.0,
-      "Nucleus": 3.0
+      "ER": 10.0,
+      "Cytosol": 10.0,
+      "Nucleus": 5.0
     }
   },
   "interferon_modifiers": {
     "Virion": 25.0,
     "Viral complex": 50.0,
     "DNA": 25.0,
-    "RNA": 100.0,
-    "Protein": 50.0
+    "RNA": 400.0,
+    "Protein": 100.0
   },
   "interferon_decay": 100.0,
   "antibody_per_10_degraded": 1,
