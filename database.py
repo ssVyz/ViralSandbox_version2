@@ -66,6 +66,10 @@ DEFAULT_INTERFERON_MODIFIERS = {
 # Default interferon decay per turn (absolute value)
 DEFAULT_INTERFERON_DECAY = 0.5
 
+# Default antibody settings
+DEFAULT_ANTIBODY_PER_10_DEGRADED = 1  # Antibodies generated per 10 proteins degraded in cytoplasm
+DEFAULT_ANTIBODY_MANIFEST_DELAY = 100  # Turns before antibodies manifest
+
 
 class GameDatabase:
     """Manages the game database containing entities, effects, genes, and milestones."""
@@ -91,6 +95,8 @@ class GameDatabase:
         self.degradation_chances: dict[str, dict[str, float]] = {}
         self.interferon_modifiers: dict[str, float] = {}
         self.interferon_decay: float = DEFAULT_INTERFERON_DECAY
+        self.antibody_per_10_degraded: int = DEFAULT_ANTIBODY_PER_10_DEGRADED
+        self.antibody_manifest_delay: int = DEFAULT_ANTIBODY_MANIFEST_DELAY
         self.filepath: Optional[Path] = None
         self.modified: bool = False
 
@@ -185,10 +191,12 @@ class GameDatabase:
         # Always create predefined entities
         self._create_predefined_entities()
 
-        # Initialize default degradation chances, interferon modifiers, and decay
+        # Initialize default degradation chances, interferon modifiers, decay, and antibody settings
         self._init_default_degradation()
         self._init_default_interferon_modifiers()
         self.interferon_decay = DEFAULT_INTERFERON_DECAY
+        self.antibody_per_10_degraded = DEFAULT_ANTIBODY_PER_10_DEGRADED
+        self.antibody_manifest_delay = DEFAULT_ANTIBODY_MANIFEST_DELAY
 
     def load(self, filepath: str) -> bool:
         """Load a database from a JSON file."""
@@ -247,6 +255,12 @@ class GameDatabase:
                 self.interferon_decay = data["interferon_decay"]
             # else: default was already set by new_database()
 
+            # Load antibody settings (or use defaults if not present)
+            if "antibody_per_10_degraded" in data:
+                self.antibody_per_10_degraded = int(data["antibody_per_10_degraded"])
+            if "antibody_manifest_delay" in data:
+                self.antibody_manifest_delay = int(data["antibody_manifest_delay"])
+
             # Load version tracking
             self.db_version = data.get("db_version", 0)
             self.last_modified = data.get("last_modified", "")
@@ -281,7 +295,9 @@ class GameDatabase:
                 "milestones": [m.to_dict() for m in self.milestones.values()],
                 "degradation_chances": self.degradation_chances,
                 "interferon_modifiers": self.interferon_modifiers,
-                "interferon_decay": self.interferon_decay
+                "interferon_decay": self.interferon_decay,
+                "antibody_per_10_degraded": self.antibody_per_10_degraded,
+                "antibody_manifest_delay": self.antibody_manifest_delay
             }
 
             with open(path, 'w', encoding='utf-8') as f:
@@ -549,4 +565,29 @@ class GameDatabase:
     def reset_interferon_decay_to_default(self):
         """Reset interferon decay to default value."""
         self.interferon_decay = DEFAULT_INTERFERON_DECAY
+        self.modified = True
+
+    # Antibody settings methods
+    def get_antibody_per_10_degraded(self) -> int:
+        """Get the number of antibodies generated per 10 proteins degraded in cytoplasm."""
+        return self.antibody_per_10_degraded
+
+    def set_antibody_per_10_degraded(self, value: int):
+        """Set the number of antibodies generated per 10 proteins degraded in cytoplasm."""
+        self.antibody_per_10_degraded = value
+        self.modified = True
+
+    def get_antibody_manifest_delay(self) -> int:
+        """Get the antibody manifestation delay in turns."""
+        return self.antibody_manifest_delay
+
+    def set_antibody_manifest_delay(self, value: int):
+        """Set the antibody manifestation delay in turns."""
+        self.antibody_manifest_delay = value
+        self.modified = True
+
+    def reset_antibody_settings_to_defaults(self):
+        """Reset antibody settings to default values."""
+        self.antibody_per_10_degraded = DEFAULT_ANTIBODY_PER_10_DEGRADED
+        self.antibody_manifest_delay = DEFAULT_ANTIBODY_MANIFEST_DELAY
         self.modified = True

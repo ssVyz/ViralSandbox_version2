@@ -1,6 +1,6 @@
 {
-  "db_version": 21,
-  "last_modified": "2026-02-03T18:17:30",
+  "db_version": 22,
+  "last_modified": "2026-02-04T07:54:38",
   "entities": [
     {
       "id": 1,
@@ -693,10 +693,10 @@
   ],
   "degradation_chances": {
     "Virion": {
-      "Extracellular": 3.0,
-      "Membrane": 3.0,
-      "Endosome": 10.0,
-      "ER": 25.0,
+      "Extracellular": 2.0,
+      "Membrane": 2.0,
+      "Endosome": 5.0,
+      "ER": 5.0,
       "Cytosol": 5.0,
       "Nucleus": 5.0
     },
@@ -740,5 +740,7 @@
     "RNA": 100.0,
     "Protein": 50.0
   },
-  "interferon_decay": 100.0
+  "interferon_decay": 100.0,
+  "antibody_per_10_degraded": 1,
+  "antibody_manifest_delay": 100
 }

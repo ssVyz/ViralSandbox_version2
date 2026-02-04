@@ -13,10 +13,6 @@ from game_state import GameState
 from models import Effect, EffectType, CellLocation, EntityCategory
 
 
-# Antibody system constants
-ANTIBODY_MANIFEST_DELAY = 100  # Turns before antibodies manifest
-
-
 @dataclass
 class EntityInstance:
     """Represents entities at a specific location."""
@@ -46,7 +42,7 @@ class SimulationState:
     new_polyproteins: dict = field(default_factory=dict)
 
     interferon_level: float = 0.0
-    antibody_stored: float = 0.0
+    antibody_stored: int = 0
     antibody_active: int = 0
     antibody_manifest_queue: list = field(default_factory=list)  # (manifest_turn, amount)
 
@@ -670,11 +666,13 @@ class PlayModule(tk.Toplevel):
         # Apply antibody response with multiplicative modifiers
         ab_resp = effect.antibody_response
         ab_resp = ab_resp * (modifier.get('antibody', 100) / 100) * (cat_modifier.get('antibody', 100) / 100)
-        if ab_resp > 0:
-            self.sim_state.antibody_stored += ab_resp * successes
+        ab_amount = int(ab_resp * successes)
+        if ab_amount > 0:
+            self.sim_state.antibody_stored += ab_amount
             # Queue antibody manifestation
-            manifest_turn = self.sim_state.turn + ANTIBODY_MANIFEST_DELAY
-            self.sim_state.antibody_manifest_queue.append((manifest_turn, ab_resp * successes))
+            delay = self.game_state.database.get_antibody_manifest_delay()
+            manifest_turn = self.sim_state.turn + delay
+            self.sim_state.antibody_manifest_queue.append((manifest_turn, ab_amount))
 
         # Log
         self.sim_state.log.append(
@@ -907,6 +905,7 @@ class PlayModule(tk.Toplevel):
     def _process_degradation(self):
         """Process entity degradation."""
         total_degraded = 0
+        cytoplasm_proteins_degraded = 0
         interferon_level = self.sim_state.interferon_level
 
         for (entity_id, location), count in list(self.sim_state.entities.items()):
@@ -942,6 +941,10 @@ class PlayModule(tk.Toplevel):
                     del self.sim_state.entities[(entity_id, location)]
                 total_degraded += degraded
 
+                # Track proteins degraded in cytoplasm for antibody generation
+                if category == EntityCategory.PROTEIN.value and location == CellLocation.CYTOSOL.value:
+                    cytoplasm_proteins_degraded += degraded
+
         # Also degrade new entities
         for (entity_id, location), count in list(self.sim_state.new_entities.items()):
             entity = self.game_state.database.get_entity(entity_id)
@@ -971,8 +974,26 @@ class PlayModule(tk.Toplevel):
                     del self.sim_state.new_entities[(entity_id, location)]
                 total_degraded += degraded
 
+                # Track proteins degraded in cytoplasm for antibody generation
+                if category == EntityCategory.PROTEIN.value and location == CellLocation.CYTOSOL.value:
+                    cytoplasm_proteins_degraded += degraded
+
         if total_degraded > 0:
             self.sim_state.log.append(f"  Degradation: {total_degraded} entities")
+
+        # Generate antibodies from cytoplasm protein degradation
+        # Fires for every 10 proteins degraded; fewer than 10 generates nothing
+        if cytoplasm_proteins_degraded >= 10:
+            ab_per_10 = self.game_state.database.get_antibody_per_10_degraded()
+            fires = cytoplasm_proteins_degraded // 10
+            ab_amount = fires * ab_per_10
+            if ab_amount > 0:
+                self.sim_state.antibody_stored += ab_amount
+                delay = self.game_state.database.get_antibody_manifest_delay()
+                manifest_turn = self.sim_state.turn + delay
+                self.sim_state.antibody_manifest_queue.append((manifest_turn, ab_amount))
+                self.sim_state.log.append(
+                    f"  Antibody response: {cytoplasm_proteins_degraded} proteins degraded in cytoplasm -> {ab_amount} antibodies stored (manifest turn {manifest_turn})")
 
     def _process_interferon_decay(self):
         """Process interferon decay."""

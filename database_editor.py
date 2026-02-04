@@ -1630,6 +1630,32 @@ class DatabaseEditor(tk.Toplevel):
         self.interferon_decay_var = tk.StringVar()
         ttk.Entry(decay_frame, textvariable=self.interferon_decay_var, width=10).pack(side=tk.LEFT, padx=5)
 
+        # ===== ANTIBODY SETTINGS SECTION =====
+        ttk.Separator(main_frame, orient='horizontal').pack(fill=tk.X, pady=15)
+
+        ttk.Label(main_frame, text="Antibody Settings",
+                  font=('TkDefaultFont', 12, 'bold')).pack(anchor='w', pady=(0, 5))
+
+        ttk.Label(main_frame, text="Antibodies are generated when proteins degrade in the cytoplasm. "
+                  "For every 10 proteins degraded, the configured number of antibodies is stored. "
+                  "Stored antibodies manifest after a delay and then neutralize extracellular entities.",
+                  wraplength=800).pack(anchor='w', pady=(0, 10))
+
+        ab_frame = ttk.LabelFrame(main_frame, text="Antibody Generation")
+        ab_frame.pack(fill=tk.X)
+
+        ttk.Label(ab_frame, text="Antibodies per 10 degraded proteins:").grid(
+            row=0, column=0, sticky='w', padx=5, pady=5)
+        self.antibody_per_10_var = tk.StringVar()
+        ttk.Entry(ab_frame, textvariable=self.antibody_per_10_var, width=10).grid(
+            row=0, column=1, sticky='w', padx=5, pady=5)
+
+        ttk.Label(ab_frame, text="Manifest delay (turns):").grid(
+            row=1, column=0, sticky='w', padx=5, pady=5)
+        self.antibody_delay_var = tk.StringVar()
+        ttk.Entry(ab_frame, textvariable=self.antibody_delay_var, width=10).grid(
+            row=1, column=1, sticky='w', padx=5, pady=5)
+
         # ===== BUTTONS =====
         ttk.Separator(main_frame, orient='horizontal').pack(fill=tk.X, pady=15)
 
@@ -1669,11 +1695,17 @@ class DatabaseEditor(tk.Toplevel):
         value = self.database.get_interferon_decay()
         self.interferon_decay_var.set(f"{value:.2f}")
 
+    def _load_antibody_settings(self):
+        """Load antibody settings from the database."""
+        self.antibody_per_10_var.set(str(self.database.get_antibody_per_10_degraded()))
+        self.antibody_delay_var.set(str(self.database.get_antibody_manifest_delay()))
+
     def _load_all_settings(self):
         """Load all settings from the database."""
         self._load_degradation_values()
         self._load_interferon_values()
         self._load_interferon_decay()
+        self._load_antibody_settings()
 
     def _apply_all_settings(self):
         """Apply all settings changes to the database."""
@@ -1714,6 +1746,27 @@ class DatabaseEditor(tk.Toplevel):
         except ValueError:
             errors.append(f"Interferon decay: Invalid number '{decay_str}'")
 
+        # Validate and apply antibody settings
+        ab_per_10_str = self.antibody_per_10_var.get().strip()
+        try:
+            ab_per_10 = int(ab_per_10_str)
+            if ab_per_10 < 0:
+                errors.append("Antibodies per 10 degraded: Value must be >= 0")
+            else:
+                self.database.set_antibody_per_10_degraded(ab_per_10)
+        except ValueError:
+            errors.append(f"Antibodies per 10 degraded: Invalid integer '{ab_per_10_str}'")
+
+        ab_delay_str = self.antibody_delay_var.get().strip()
+        try:
+            ab_delay = int(ab_delay_str)
+            if ab_delay < 0:
+                errors.append("Antibody manifest delay: Value must be >= 0")
+            else:
+                self.database.set_antibody_manifest_delay(ab_delay)
+        except ValueError:
+            errors.append(f"Antibody manifest delay: Invalid integer '{ab_delay_str}'")
+
         if errors:
             messagebox.showerror("Validation Errors",
                                 "The following errors were found:\n\n" + "\n".join(errors[:10]))
@@ -1724,10 +1777,11 @@ class DatabaseEditor(tk.Toplevel):
     def _reset_all_settings_to_defaults(self):
         """Reset all settings to default values."""
         if messagebox.askyesno("Reset Defaults",
-                               "Reset all degradation and interferon settings to default values?"):
+                               "Reset all global settings to default values?"):
             self.database.reset_degradation_to_defaults()
             self.database.reset_interferon_modifiers_to_defaults()
             self.database.reset_interferon_decay_to_default()
+            self.database.reset_antibody_settings_to_defaults()
             self._load_all_settings()
             self._update_status()
             messagebox.showinfo("Reset", "All settings reset to defaults.")
