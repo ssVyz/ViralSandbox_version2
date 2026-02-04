@@ -179,6 +179,15 @@ class GameState:
                     return item
         return None
 
+    def has_polymerase_installed(self) -> bool:
+        """Check if a polymerase gene is already installed."""
+        for item in self.installed_genes:
+            if not self.is_marker(item):
+                gene = self.get_gene(item)
+                if gene and gene.is_polymerase:
+                    return True
+        return False
+
     def can_install_gene(self, gene_id: int) -> tuple[bool, str]:
         """Check if a gene can be installed. Returns (can_install, reason)."""
         gene = self.get_gene(gene_id)
@@ -197,6 +206,10 @@ class GameState:
         # Check UTR constraint: only one UTR gene allowed
         if gene.is_utr and self.has_utr_installed():
             return False, "Only one UTR gene can be installed at a time"
+
+        # Check polymerase constraint: only one polymerase gene allowed
+        if gene.is_polymerase and self.has_polymerase_installed():
+            return False, "Only one polymerase gene can be installed at a time"
 
         return True, "OK"
 

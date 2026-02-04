@@ -1,6 +1,6 @@
 {
-  "db_version": 29,
-  "last_modified": "2026-02-04T10:00:51",
+  "db_version": 30,
+  "last_modified": "2026-02-04T14:13:44",
   "entities": [
     {
       "id": 1,
@@ -580,6 +580,7 @@
       ],
       "description": "Enterovirus capsid proteins.",
       "is_utr": false,
+      "is_polymerase": false,
       "abbreviation": "",
       "required_genome_type": "(+)ssRNA"
     },
@@ -597,6 +598,7 @@
       ],
       "description": "Enterovirus 2A Protease. Also responsible for shutting of cap dependent translation.",
       "is_utr": false,
+      "is_polymerase": false,
       "abbreviation": "2Apro",
       "required_genome_type": ""
     },
@@ -612,6 +614,7 @@
       ],
       "description": "Enterovirus UTR",
       "is_utr": true,
+      "is_polymerase": false,
       "abbreviation": "UTR",
       "required_genome_type": ""
     },
@@ -627,6 +630,7 @@
       ],
       "description": "Main Enterovirus Protease",
       "is_utr": false,
+      "is_polymerase": false,
       "abbreviation": "3Cpro",
       "required_genome_type": ""
     },
@@ -642,6 +646,7 @@
       ],
       "description": "VPg for Translation",
       "is_utr": false,
+      "is_polymerase": false,
       "abbreviation": "",
       "required_genome_type": ""
     },
@@ -658,6 +663,7 @@
       ],
       "description": "Enterovirus RdRp",
       "is_utr": false,
+      "is_polymerase": true,
       "abbreviation": "3Dpol",
       "required_genome_type": ""
     }

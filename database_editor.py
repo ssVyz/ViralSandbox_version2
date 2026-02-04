@@ -989,6 +989,11 @@ class DatabaseEditor(tk.Toplevel):
                         variable=self.gene_is_utr_var).grid(row=row, column=0, columnspan=2, sticky='w', pady=2)
 
         row += 1
+        self.gene_is_polymerase_var = tk.BooleanVar()
+        ttk.Checkbutton(right_frame, text="Is Polymerase (only one allowed per virus)",
+                        variable=self.gene_is_polymerase_var).grid(row=row, column=0, columnspan=2, sticky='w', pady=2)
+
+        row += 1
         ttk.Label(right_frame, text="Required Genome:").grid(row=row, column=0, sticky='w', pady=2)
         self.gene_genome_type_var = tk.StringVar()
         genome_type_values = [
@@ -1087,6 +1092,7 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_desc_text.insert('1.0', gene.description)
 
         self.gene_is_utr_var.set(gene.is_utr)
+        self.gene_is_polymerase_var.set(gene.is_polymerase)
 
         # Set required genome type
         if gene.required_genome_type:
@@ -1132,6 +1138,7 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_length_var.set("")
         self.gene_type_var.set("None")
         self.gene_is_utr_var.set(False)
+        self.gene_is_polymerase_var.set(False)
         self.gene_genome_type_var.set("(None)")
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_effects_listbox.delete(0, tk.END)
@@ -1209,6 +1216,7 @@ class DatabaseEditor(tk.Toplevel):
             effect_ids=list(self._current_gene_effects),
             description=self.gene_desc_text.get('1.0', tk.END).strip(),
             is_utr=self.gene_is_utr_var.get(),
+            is_polymerase=self.gene_is_polymerase_var.get(),
             abbreviation=self.gene_abbrev_var.get().strip(),
             required_genome_type=required_genome_type
         )

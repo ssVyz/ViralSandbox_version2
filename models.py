@@ -213,6 +213,7 @@ class Gene:
     effect_ids: list = field(default_factory=list)  # List of effect IDs
     description: str = ""
     is_utr: bool = False  # If True, this gene is a UTR (fixed at 5' end, only one allowed)
+    is_polymerase: bool = False  # If True, this gene is a polymerase (only one allowed per virus)
     abbreviation: str = ""  # Optional short name for display in tight spaces
     required_genome_type: str = ""  # Genome type required for this gene's effects to work (empty = any)
 
@@ -233,6 +234,7 @@ class Gene:
             "effect_ids": self.effect_ids,
             "description": self.description,
             "is_utr": self.is_utr,
+            "is_polymerase": self.is_polymerase,
             "abbreviation": self.abbreviation,
             "required_genome_type": self.required_genome_type
         }
@@ -258,6 +260,7 @@ class Gene:
             effect_ids=data.get("effect_ids", []),
             description=data.get("description", ""),
             is_utr=data.get("is_utr", False),
+            is_polymerase=data.get("is_polymerase", False),
             abbreviation=data.get("abbreviation", ""),
             required_genome_type=data.get("required_genome_type", "")
         )

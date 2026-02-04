@@ -723,11 +723,12 @@ class BuilderModule(tk.Toplevel):
             bg_color = gene_frame.cget('bg')
             fg_color = 'red' if is_genome_incompatible else 'dark green'
 
-        # Add UTR indicator if applicable
+        # Add special gene indicators
         utr_indicator = " [UTR]" if gene.is_utr else ""
+        poly_indicator = " [Pol]" if gene.is_polymerase else ""
         # Add genome incompatibility indicator
         genome_indicator = " - Wrong genome type" if is_genome_incompatible else ""
-        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]{utr_indicator}{genome_indicator}"
+        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]{utr_indicator}{poly_indicator}{genome_indicator}"
 
         gene_label = tk.Label(gene_frame, text=gene_text, cursor="hand2",
                              fg=fg_color, bg=bg_color if is_selected else gene_frame.cget('bg'))
@@ -1105,6 +1106,10 @@ class BuilderModule(tk.Toplevel):
         if gene.is_utr:
             self.details_text.insert(tk.END, f"UTR: ", "header")
             self.details_text.insert(tk.END, "Yes (fixed at 5' end)\n", "value")
+
+        if gene.is_polymerase:
+            self.details_text.insert(tk.END, f"Polymerase: ", "header")
+            self.details_text.insert(tk.END, "Yes (only one allowed)\n", "value")
 
         gene_type_name = self.game_state.database.get_gene_type_name(gene)
         if gene_type_name != "None":
