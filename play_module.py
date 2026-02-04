@@ -11,6 +11,7 @@ import random
 
 from game_state import GameState
 from models import Effect, EffectType, CellLocation, EntityCategory
+from builder import BlueprintDialog
 
 
 @dataclass
@@ -330,8 +331,9 @@ class PlayModule(tk.Toplevel):
 
         ttk.Button(btn_frame, text="View Log",
                    command=self._show_log).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="End Round",
-                   command=self._request_end_round).pack(side=tk.LEFT, padx=2)
+        self.end_round_btn = tk.Button(btn_frame, text="End Round",
+                                        command=self._request_end_round)
+        self.end_round_btn.pack(side=tk.LEFT, padx=2)
 
         # Status
         self.status_var = tk.StringVar(value="Paused - Click Run to start")
@@ -1622,8 +1624,31 @@ class PlayModule(tk.Toplevel):
         text.insert('1.0', '\n'.join(self.sim_state.log))
         text.configure(state='disabled')
 
+    def _enter_review_mode(self):
+        """Enter review mode after extinction - let the player inspect the round."""
+        self.sim_state.is_running = False
+
+        # Hide the Run/Stop button
+        self.run_stop_btn.pack_forget()
+
+        # Update status
+        self.status_var.set("Round over - Review your results, then return to Builder")
+
+        # Highlight the End Round button
+        self.end_round_btn.configure(
+            text="Return to Builder",
+            bg='#2196f3', fg='white',
+            font=('TkDefaultFont', 10, 'bold'),
+            activebackground='#1976d2', activeforeground='white'
+        )
+
     def _request_end_round(self):
         """Request to end the current round early."""
+        if self.sim_state.is_ended:
+            # Round already ended (extinction/review mode) - no confirmation needed
+            self._end_round()
+            return
+
         if messagebox.askyesno("End Round",
                                "End this play round and return to Builder?"):
             self._end_round(early_exit=True)
@@ -1635,14 +1660,17 @@ class PlayModule(tk.Toplevel):
 
         dialog = tk.Toplevel(self)
         dialog.title("Round Complete")
-        dialog.geometry("400x300")
+        dialog.geometry("400x350")
         dialog.transient(self)
         dialog.grab_set()
 
         # Handle window close button
         def on_dialog_close():
             dialog.destroy()
-            self._end_round()
+            if self.sim_state.extinction:
+                self._enter_review_mode()
+            else:
+                self._end_round()
 
         dialog.protocol("WM_DELETE_WINDOW", on_dialog_close)
 
@@ -1683,8 +1711,22 @@ class PlayModule(tk.Toplevel):
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(pady=20)
 
+        if self.sim_state.is_victory:
+            tk.Button(btn_frame, text="View Virus Blueprint",
+                      command=lambda: BlueprintDialog(dialog, self.game_state),
+                      bg='#9c27b0', fg='white',
+                      font=('TkDefaultFont', 10, 'bold'),
+                      activebackground='#7b1fa2', activeforeground='white'
+                      ).pack(side=tk.LEFT, padx=5)
+
         ttk.Button(btn_frame, text="View Log",
                    command=self._show_log).pack(side=tk.LEFT, padx=5)
+
+        if self.sim_state.extinction:
+            ttk.Button(btn_frame, text="Review Round",
+                       command=lambda: [dialog.destroy(), self._enter_review_mode()]
+                       ).pack(side=tk.LEFT, padx=5)
+
         ttk.Button(btn_frame, text="Return to Builder",
                    command=lambda: [dialog.destroy(), self._end_round()]).pack(side=tk.LEFT, padx=5)
 
