@@ -1146,7 +1146,7 @@ class BuilderModule(tk.Toplevel):
                 self.details_text.insert(tk.END, f"Antibody Response: ", "header")
                 self.details_text.insert(tk.END, f"{effect.antibody_response}\n", "value")
 
-        elif effect.effect_type == "Modify transition":
+        elif effect.effect_type == "Modify effect":
             self.details_text.insert(tk.END, f"\nTarget: ", "header")
             if effect.target_effect_id:
                 target = self.game_state.get_effect(effect.target_effect_id)

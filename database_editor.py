@@ -478,9 +478,9 @@ class DatabaseEditor(tk.Toplevel):
         ttk.Button(output_btn_frame, text="Add Unpack Genome", command=self._add_unpack_genome_output).pack(side=tk.LEFT, padx=2)
         ttk.Button(output_btn_frame, text="Remove Output", command=self._remove_output).pack(side=tk.LEFT, padx=2)
 
-        # Modify transition fields
+        # Modify effect fields
         row += 1
-        self.modify_frame = ttk.LabelFrame(right_frame, text="Modify Transition Settings")
+        self.modify_frame = ttk.LabelFrame(right_frame, text="Modify Effect Settings")
         self.modify_frame.grid(row=row, column=0, columnspan=2, sticky='ew', pady=10)
 
         ttk.Label(self.modify_frame, text="Target Effect ID:").grid(row=0, column=0, sticky='w', pady=2, padx=5)
@@ -601,7 +601,7 @@ class DatabaseEditor(tk.Toplevel):
 
         if effect_type == EffectType.TRANSITION.value:
             self.transition_frame.grid()
-        elif effect_type == EffectType.MODIFY_TRANSITION.value:
+        elif effect_type == EffectType.MODIFY_EFFECT.value:
             self.modify_frame.grid()
         elif effect_type == EffectType.CHANGE_LOCATION.value:
             self.location_frame.grid()

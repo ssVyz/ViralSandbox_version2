@@ -543,23 +543,24 @@ class PlayModule(tk.Toplevel):
         # Sort by effect ID for consistent ordering
         transition_effects.sort(key=lambda e: e.id)
 
-        # Get modifiers for transitions
-        modifiers = self._get_transition_modifiers()
+        # Get modifiers
+        modifiers = self._get_effect_modifiers()
 
         for effect in transition_effects:
             self._apply_transition(effect, modifiers)
 
-    def _get_transition_modifiers(self) -> dict:
-        """Get all transition modifiers keyed by effect ID and category.
+    def _get_effect_modifiers(self) -> dict:
+        """Get all effect modifiers keyed by effect ID and category.
 
         Modifiers are stored as percentage multipliers (100 = no change, 150 = 1.5x).
         Multiple modifiers targeting the same effect/category are multiplied together.
+        Applies to Transition, Translation, and Change location effects.
         """
         modifiers = defaultdict(lambda: {'chance': 100, 'interferon': 100, 'antibody': 100})
 
         all_effects = self.effects + self.global_effects
         modify_effects = [e for e in all_effects
-                         if e.effect_type == EffectType.MODIFY_TRANSITION.value]
+                         if e.effect_type == EffectType.MODIFY_EFFECT.value]
 
         for effect in modify_effects:
             if effect.target_effect_id is not None:
@@ -703,10 +704,12 @@ class PlayModule(tk.Toplevel):
 
         translation_effects.sort(key=lambda e: e.id)
 
-        for effect in translation_effects:
-            self._apply_translation(effect)
+        modifiers = self._get_effect_modifiers()
 
-    def _apply_translation(self, effect: Effect):
+        for effect in translation_effects:
+            self._apply_translation(effect, modifiers)
+
+    def _apply_translation(self, effect: Effect, modifiers: dict):
         """Apply a single translation effect."""
         # Check if templates are available
         templates_available = True
@@ -748,15 +751,21 @@ class PlayModule(tk.Toplevel):
         if not valid_orfs:
             return
 
-        # Calculate chance
-        chance = effect.translation_chance
-        if chance <= 0:
+        # Calculate modified chance using modifiers
+        base_chance = effect.translation_chance
+        modifier = modifiers.get(('id', effect.id), {'chance': 100, 'interferon': 100, 'antibody': 100})
+        cat_modifier = modifiers.get(('category', effect.category), {'chance': 100, 'interferon': 100, 'antibody': 100})
+
+        total_chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
+        total_chance = max(0, min(100, total_chance))
+
+        if total_chance <= 0:
             return
 
         # For each template, attempt translation
         successes = 0
         for _ in range(int(min_possible)):
-            if random.random() * 100 < chance:
+            if random.random() * 100 < total_chance:
                 successes += 1
 
         if successes == 0:
@@ -768,7 +777,7 @@ class PlayModule(tk.Toplevel):
             self._translate_orf(orf_info)
 
         self.sim_state.log.append(
-            f"  {effect.name}: {successes}x translation events")
+            f"  {effect.name}: {successes}x translation events (chance: {total_chance:.1f}%)")
 
     def _translate_orf(self, orf_info: dict):
         """Translate an ORF, producing appropriate protein or polyprotein."""
@@ -831,14 +840,23 @@ class PlayModule(tk.Toplevel):
 
         location_effects.sort(key=lambda e: e.id)
 
-        for effect in location_effects:
-            self._apply_location_change(effect)
+        modifiers = self._get_effect_modifiers()
 
-    def _apply_location_change(self, effect: Effect):
+        for effect in location_effects:
+            self._apply_location_change(effect, modifiers)
+
+    def _apply_location_change(self, effect: Effect, modifiers: dict):
         """Apply a single location change effect."""
         source = effect.source_location
         target = effect.target_location
-        chance = effect.location_change_chance
+
+        # Calculate modified chance using modifiers
+        base_chance = effect.location_change_chance
+        modifier = modifiers.get(('id', effect.id), {'chance': 100, 'interferon': 100, 'antibody': 100})
+        cat_modifier = modifiers.get(('category', effect.category), {'chance': 100, 'interferon': 100, 'antibody': 100})
+
+        chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
+        chance = max(0, min(100, chance))
 
         if not source or not target or chance <= 0:
             return

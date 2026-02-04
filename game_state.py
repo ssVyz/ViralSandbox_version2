@@ -693,7 +693,7 @@ class GameState:
         return has_valid_output
 
     def _can_modify_happen(self, effect: Effect, valid_effect_ids: set) -> bool:
-        """Check if a Modify transition effect can happen."""
+        """Check if a Modify effect can happen."""
         # If targeting a specific effect ID, check if it's in valid effects
         if effect.target_effect_id is not None:
             return effect.target_effect_id in valid_effect_ids
@@ -790,7 +790,7 @@ class GameState:
                 if self._can_translation_happen(effect):
                     valid_effect_ids.add(eid)
 
-            elif effect.effect_type == EffectType.MODIFY_TRANSITION.value:
+            elif effect.effect_type == EffectType.MODIFY_EFFECT.value:
                 # Defer modify effects to second pass
                 pending_modify_effects.append(effect)
 
@@ -834,8 +834,16 @@ class GameState:
         valid_gene_effect_ids = set()
         for eid in gene_effect_ids:
             effect = self.get_effect(eid)
-            if effect and effect.effect_type == EffectType.TRANSITION.value:
+            if not effect:
+                continue
+            if effect.effect_type == EffectType.TRANSITION.value:
                 if self._can_transition_happen(effect):
+                    valid_gene_effect_ids.add(eid)
+            elif effect.effect_type == EffectType.CHANGE_LOCATION.value:
+                if self._can_change_location_happen(effect):
+                    valid_gene_effect_ids.add(eid)
+            elif effect.effect_type == EffectType.TRANSLATION.value:
+                if self._can_translation_happen(effect):
                     valid_gene_effect_ids.add(eid)
 
         # Filter global effects
@@ -853,7 +861,7 @@ class GameState:
                 if self._can_translation_happen(effect):
                     filtered.append(effect)
 
-            elif effect.effect_type == EffectType.MODIFY_TRANSITION.value:
+            elif effect.effect_type == EffectType.MODIFY_EFFECT.value:
                 # Combine valid gene effects with already filtered global effects
                 all_valid_ids = valid_gene_effect_ids | {e.id for e in filtered}
                 if self._can_modify_happen(effect, all_valid_ids):

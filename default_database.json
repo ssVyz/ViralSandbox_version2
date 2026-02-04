@@ -448,7 +448,7 @@
     {
       "id": 13,
       "name": "VPg enhanced RdRp function",
-      "effect_type": "Modify transition",
+      "effect_type": "Modify effect",
       "category": "",
       "description": "Protein primer facilitating RdRp function of picornaviruses",
       "is_global": false,
@@ -507,7 +507,7 @@
     {
       "id": 15,
       "name": "Degradation of eIF4",
-      "effect_type": "Modify transition",
+      "effect_type": "Modify effect",
       "category": "",
       "description": "Shut down of host protein synthesis.",
       "is_global": false,

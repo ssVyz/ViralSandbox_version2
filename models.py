@@ -26,7 +26,7 @@ class CellLocation(Enum):
 
 class EffectType(Enum):
     TRANSITION = "Transition"
-    MODIFY_TRANSITION = "Modify transition"
+    MODIFY_EFFECT = "Modify effect"
     CHANGE_LOCATION = "Change location"
     TRANSLATION = "Translation"
     SELF_CLEAVAGE = "Self-cleavage"
@@ -120,7 +120,7 @@ class Effect:
     antibody_response: float = 0.0
     requires_genome_type: str = ""  # For polymerase activity
 
-    # For Modify transition effects
+    # For Modify effect effects
     target_effect_id: Optional[int] = None
     target_category: str = ""  # Can target by category string
     chance_modifier: float = 100.0  # Percentage multiplier (100 = no change, 150 = 1.5x)
