@@ -83,6 +83,7 @@ class PlayModule(tk.Toplevel):
         self.title("Viral Sandbox - Play Module")
         self.geometry("1400x900")
         self.minsize(1200, 700)
+        self.state('zoomed')
 
         # Build virus blueprint
         self.effects = self._build_effects_list()
@@ -286,7 +287,8 @@ class PlayModule(tk.Toplevel):
         # Category filter checkboxes
         self.graph_filters = {}
         colors = [('Virion', 'purple'), ('RNA', 'green'),
-                  ('DNA', 'blue'), ('Protein', 'orange')]
+                  ('DNA', 'blue'), ('Protein', 'orange'),
+                  ('Antibodies', 'red')]
         for name, color in colors:
             var = tk.BooleanVar(value=True)
             self.graph_filters[name] = var
@@ -1148,7 +1150,8 @@ class PlayModule(tk.Toplevel):
             'Virion': 0,
             'RNA': 0,
             'DNA': 0,
-            'Protein': 0
+            'Protein': 0,
+            'Antibodies': self.sim_state.antibody_active
         }
 
         for (entity_id, location), count in self.sim_state.entities.items():
@@ -1425,7 +1428,7 @@ class PlayModule(tk.Toplevel):
                 entities_by_location[CellLocation.CYTOSOL.value].append((poly, count, True))  # True = polyprotein
 
         # Find max count for scaling
-        all_counts = [c for c in all_entities.values()] + [c for c in all_polyproteins.values()] + [10]
+        all_counts = [c for c in all_entities.values()] + [c for c in all_polyproteins.values()] + [50]
         max_count = max(all_counts)
 
         y = 10
@@ -1584,7 +1587,7 @@ class PlayModule(tk.Toplevel):
                                        text="Turn", anchor='n', font=('TkDefaultFont', 8))
 
         # Draw lines for each enabled category
-        colors = {'Virion': 'purple', 'RNA': 'green', 'DNA': 'blue', 'Protein': 'orange'}
+        colors = {'Virion': 'purple', 'RNA': 'green', 'DNA': 'blue', 'Protein': 'orange', 'Antibodies': 'red'}
 
         for category, color in colors.items():
             if category not in enabled_categories:

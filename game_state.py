@@ -553,11 +553,22 @@ class GameState:
         """Get the number of Terminators currently installed."""
         return sum(1 for item in self.installed_genes if self.is_terminator(item))
 
+    def get_lock_cost(self) -> int:
+        """Get the cost to lock config. First lock is free, subsequent locks cost config_lock_cost."""
+        if not self.virus_config.is_locked:
+            return 0
+        return self.config_lock_cost
+
     def can_lock_config(self) -> tuple[bool, str]:
         """Check if config can be locked in."""
-        if self.evolution_points < self.config_lock_cost:
-            return False, f"Not enough EP (need {self.config_lock_cost}, have {self.evolution_points})"
+        cost = self.get_lock_cost()
+        if self.evolution_points < cost:
+            return False, f"Not enough EP (need {cost}, have {self.evolution_points})"
         return True, "OK"
+
+    def needs_config_lock(self) -> bool:
+        """Check if config needs to be locked (first time or has pending changes)."""
+        return not self.virus_config.is_locked or self.has_pending_changes()
 
     def lock_config(self) -> tuple[bool, str]:
         """Lock in the pending virus configuration."""
@@ -565,15 +576,19 @@ class GameState:
         if not can_lock:
             return False, reason
 
+        cost = self.get_lock_cost()
+
         # Pay the cost
-        self.evolution_points -= self.config_lock_cost
+        self.evolution_points -= cost
 
         # Apply pending config
         self.virus_config = self.pending_config.copy()
         self.virus_config.is_locked = True
         self.pending_config = self.virus_config.copy()
 
-        return True, f"Configuration locked for {self.config_lock_cost} EP"
+        if cost == 0:
+            return True, "Configuration locked (free)"
+        return True, f"Configuration locked for {cost} EP"
 
     def reset_pending_config(self):
         """Reset pending config to current locked config."""

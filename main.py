@@ -270,6 +270,7 @@ class MainMenu(tk.Tk):
         # Show the builder module first (so dialog has a visible parent context)
         if self.builder_module:
             self.builder_module.deiconify()
+            self.builder_module.state('zoomed')
             self.builder_module.update()  # Process pending events
 
         # Offer new genes for next round

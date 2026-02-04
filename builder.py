@@ -24,6 +24,7 @@ class BuilderModule(tk.Toplevel):
         self.title("Viral Sandbox - Builder Module")
         self.geometry("1400x900")
         self.minsize(1200, 700)
+        self.state('zoomed')
 
         # Track expanded genes in tree views
         self.available_expanded = set()
@@ -106,15 +107,6 @@ class BuilderModule(tk.Toplevel):
                                 font=('TkDefaultFont', 10))
         genome_label.pack(side=tk.LEFT, padx=10)
 
-        # Play round button
-        play_btn = ttk.Button(status_frame, text="Start Play Round",
-                             command=self._on_play_round)
-        play_btn.pack(side=tk.RIGHT, padx=10)
-
-        # View blueprint button
-        blueprint_btn = ttk.Button(status_frame, text="View Virus Blueprint",
-                                  command=self._show_blueprint)
-        blueprint_btn.pack(side=tk.RIGHT, padx=5)
 
     def _create_config_section(self, parent):
         """Create the virus configuration section."""
@@ -190,12 +182,28 @@ class BuilderModule(tk.Toplevel):
         self.config_status_var = tk.StringVar()
         ttk.Label(self.lock_btn_frame, textvariable=self.config_status_var).pack(side=tk.LEFT, padx=5)
 
-        self.lock_btn = ttk.Button(self.lock_btn_frame, text=f"Lock Configuration ({self.game_state.config_lock_cost} EP)",
+        self.lock_btn = tk.Button(self.lock_btn_frame, text="Lock Configuration (Free)",
                                   command=self._lock_config)
         self.lock_btn.pack(side=tk.LEFT, padx=5)
 
         ttk.Button(self.lock_btn_frame, text="Reset Changes",
                   command=self._reset_config).pack(side=tk.LEFT, padx=5)
+
+        # Action buttons below lock/reset
+        row += 1
+        action_btn_frame = ttk.Frame(options_frame)
+        action_btn_frame.grid(row=row, column=0, columnspan=2, pady=(5, 0))
+
+        ttk.Button(action_btn_frame, text="View Virus Blueprint",
+                  command=self._show_blueprint).pack(side=tk.LEFT, padx=5)
+
+        self.play_btn = tk.Button(action_btn_frame, text="▶  Play", width=12,
+                                   bg='#4caf50', fg='white',
+                                   font=('TkDefaultFont', 13, 'bold'),
+                                   activebackground='#45a049', activeforeground='white',
+                                   relief=tk.RAISED, bd=2,
+                                   command=self._on_play_round)
+        self.play_btn.pack(side=tk.LEFT, padx=10)
 
     def _create_available_panel(self, parent):
         """Create the available genes panel with tree view."""
@@ -318,6 +326,28 @@ class BuilderModule(tk.Toplevel):
 
         if self.game_state.has_pending_changes():
             self.config_status_var.set(self.config_status_var.get() + " - UNSAVED CHANGES")
+
+        # Update lock button appearance based on whether locking is needed
+        cost = self.game_state.get_lock_cost()
+        if cost == 0:
+            cost_text = "Free"
+        else:
+            cost_text = f"{cost} EP"
+
+        if self.game_state.needs_config_lock():
+            self.lock_btn.configure(
+                text=f"Lock Configuration ({cost_text})",
+                bg='#ff9800', fg='white',
+                font=('TkDefaultFont', 10, 'bold'),
+                activebackground='#f57c00', activeforeground='white'
+            )
+        else:
+            self.lock_btn.configure(
+                text=f"Lock Configuration ({cost_text})",
+                bg='SystemButtonFace', fg='black',
+                font=('TkDefaultFont', 9),
+                activebackground='SystemButtonFace', activeforeground='black'
+            )
 
     def _update_polarity_state(self):
         """Enable/disable polarity options based on strandedness."""
@@ -1251,23 +1281,49 @@ class BuilderModule(tk.Toplevel):
             messagebox.showwarning("No Genes", "You need to install at least one gene before playing.")
             return
 
-        if self.game_state.has_pending_changes():
-            result = messagebox.askyesnocancel(
-                "Unsaved Config",
-                "You have unsaved configuration changes.\n\n"
-                "Yes = Lock changes (costs EP)\n"
-                "No = Discard changes\n"
-                "Cancel = Go back"
-            )
-            if result is True:
-                success, msg = self.game_state.lock_config()
-                if not success:
-                    messagebox.showerror("Error", msg)
+        if self.game_state.needs_config_lock():
+            cost = self.game_state.get_lock_cost()
+            if not self.game_state.virus_config.is_locked:
+                # Never locked - must lock before playing
+                cost_text = "free" if cost == 0 else f"{cost} EP"
+                result = messagebox.askyesno(
+                    "Lock Configuration",
+                    "You must lock your genome and envelope configuration before playing.\n\n"
+                    f"Lock current configuration ({cost_text})?"
+                )
+                if result:
+                    # Sync pending config from UI
+                    self.game_state.pending_config.nucleic_acid = self.nucleic_acid_var.get()
+                    self.game_state.pending_config.strandedness = self.strandedness_var.get()
+                    self.game_state.pending_config.polarity = self.polarity_var.get()
+                    self.game_state.pending_config.virion_type = self.virion_type_var.get()
+
+                    success, msg = self.game_state.lock_config()
+                    if not success:
+                        messagebox.showerror("Error", msg)
+                        return
+                    self._refresh_all()
+                else:
                     return
-            elif result is None:
-                return
             else:
-                self.game_state.reset_pending_config()
+                # Has pending changes
+                cost_text = f"{cost} EP"
+                result = messagebox.askyesnocancel(
+                    "Unsaved Config",
+                    "You have unsaved configuration changes.\n\n"
+                    f"Yes = Lock changes ({cost_text})\n"
+                    "No = Discard changes\n"
+                    "Cancel = Go back"
+                )
+                if result is True:
+                    success, msg = self.game_state.lock_config()
+                    if not success:
+                        messagebox.showerror("Error", msg)
+                        return
+                elif result is None:
+                    return
+                else:
+                    self.game_state.reset_pending_config()
 
         if self.on_play_callback:
             self.on_play_callback()
