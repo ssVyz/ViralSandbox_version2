@@ -1,6 +1,6 @@
 {
-  "db_version": 33,
-  "last_modified": "2026-02-04T15:48:33",
+  "db_version": 35,
+  "last_modified": "2026-02-04T15:58:55",
   "entities": [
     {
       "id": 1,
@@ -129,6 +129,14 @@
       "entity_type": "Replication Co-factor",
       "description": "Protein interacting with viral replication. e.g. VPg",
       "abbreviation": "rep"
+    },
+    {
+      "id": 19,
+      "name": "mRNA",
+      "category": "RNA",
+      "entity_type": "None",
+      "description": "Host transcribed and processed mRNA",
+      "abbreviation": ""
     }
   ],
   "effects": [
@@ -683,7 +691,7 @@
     },
     {
       "id": 14,
-      "name": "BKPyVP2-3 VP2-3",
+      "name": "BKPyVgp2-3 VP2-3",
       "set_name": "BKV",
       "install_cost": 30,
       "length": 1700,
@@ -721,6 +729,20 @@
       "is_utr": false,
       "is_polymerase": false,
       "abbreviation": "sT",
+      "required_genome_type": ""
+    },
+    {
+      "id": 17,
+      "name": "Agnoprotein",
+      "set_name": "BKV",
+      "install_cost": 15,
+      "length": 201,
+      "gene_type_entity_id": null,
+      "effect_ids": [],
+      "description": "Non-structural late protein",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "Agn",
       "required_genome_type": ""
     }
   ],
