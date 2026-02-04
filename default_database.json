@@ -1,6 +1,6 @@
 {
-  "db_version": 30,
-  "last_modified": "2026-02-04T14:13:44",
+  "db_version": 33,
+  "last_modified": "2026-02-04T15:48:33",
   "entities": [
     {
       "id": 1,
@@ -665,6 +665,62 @@
       "is_utr": false,
       "is_polymerase": true,
       "abbreviation": "3Dpol",
+      "required_genome_type": ""
+    },
+    {
+      "id": 13,
+      "name": "BKPyVgp4 VP1",
+      "set_name": "BKV",
+      "install_cost": 25,
+      "length": 1089,
+      "gene_type_entity_id": 12,
+      "effect_ids": [],
+      "description": "BKV VP1 mediates entry through endosome to ER and ultimately release into cytoplasm",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "VP1",
+      "required_genome_type": ""
+    },
+    {
+      "id": 14,
+      "name": "BKPyVP2-3 VP2-3",
+      "set_name": "BKV",
+      "install_cost": 30,
+      "length": 1700,
+      "gene_type_entity_id": 12,
+      "effect_ids": [],
+      "description": "BKV VP2 and VP3 mediate transport of viral genome complex into the nucleus.",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "VP2-3",
+      "required_genome_type": ""
+    },
+    {
+      "id": 15,
+      "name": "Large T antigen",
+      "set_name": "BKV",
+      "install_cost": 40,
+      "length": 2400,
+      "gene_type_entity_id": 18,
+      "effect_ids": [],
+      "description": "BKV master replication protein. Origin binding and helicase function.",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "LT",
+      "required_genome_type": ""
+    },
+    {
+      "id": 16,
+      "name": "Small T antigen",
+      "set_name": "BKV",
+      "install_cost": 30,
+      "length": 520,
+      "gene_type_entity_id": null,
+      "effect_ids": [],
+      "description": "Modulates host factors to favor replication",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "sT",
       "required_genome_type": ""
     }
   ],
