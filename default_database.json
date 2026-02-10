@@ -1,6 +1,6 @@
 {
-  "db_version": 35,
-  "last_modified": "2026-02-04T15:58:55",
+  "db_version": 46,
+  "last_modified": "2026-02-10T17:48:23",
   "entities": [
     {
       "id": 1,
@@ -357,7 +357,7 @@
       "effect_type": "Transition",
       "category": "",
       "description": "",
-      "is_global": false,
+      "is_global": true,
       "inputs": [
         {
           "entity_id": 2,
@@ -373,9 +373,9 @@
           "location": "Extracellular"
         }
       ],
-      "chance": 60.0,
-      "interferon_production": 1.0,
-      "antibody_response": 10.0,
+      "chance": 75.0,
+      "interferon_production": 100.0,
+      "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
       "target_category": "",
@@ -570,6 +570,426 @@
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
       "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 18,
+      "name": "Endocytosis of bound virions",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "Bound virion is endocytosed.",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "Membrane",
+      "target_location": "Endosome",
+      "affected_entity_id": 8,
+      "location_change_chance": 50.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 19,
+      "name": "VP1 mediated transport to ER",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "VP1 mediates transport to the ER.",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "Endosome",
+      "target_location": "ER",
+      "affected_entity_id": 8,
+      "location_change_chance": 60.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 20,
+      "name": "Release into cytoplasm from ER",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Genome complex is released into the cytoplasm",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 8,
+          "amount": 1,
+          "location": "ER",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 17,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 80.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 21,
+      "name": "Trafficing and release into nucleus",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Transport to nucleus and genome release",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 17,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 0,
+          "amount": 1,
+          "location": "Nucleus",
+          "is_unpack_genome": true
+        }
+      ],
+      "chance": 50.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 22,
+      "name": "Transcription of dsDNA",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Production of mRNA by host transcription machinery",
+      "is_global": true,
+      "inputs": [
+        {
+          "entity_id": 6,
+          "amount": 1,
+          "location": "Nucleus",
+          "consumed": false
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 19,
+          "amount": 1,
+          "location": "Nucleus"
+        }
+      ],
+      "chance": 25.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 23,
+      "name": "Transport of mRNA to cytoplasm",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "mRNA transport to the cytosol",
+      "is_global": true,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "Nucleus",
+      "target_location": "Cytosol",
+      "affected_entity_id": 19,
+      "location_change_chance": 70.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 24,
+      "name": "Translation of mRNA",
+      "effect_type": "Translation",
+      "category": "",
+      "description": "Translation of mRNAs produced in the nucleus",
+      "is_global": true,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [
+        {
+          "entity_id": 19,
+          "location": "Cytosol"
+        }
+      ],
+      "translation_chance": 50.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 25,
+      "name": "Import of co-factor into nucleus",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "Replication co-factor is transported to the nucleus",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "Cytosol",
+      "target_location": "Nucleus",
+      "affected_entity_id": 18,
+      "location_change_chance": 35.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 26,
+      "name": "Co-factor dependent replication of episomal DNA",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Master replication protein allows host DNA synthesis machinery to copy episomal dsDNA and pushes cell into S-phase",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 6,
+          "amount": 1,
+          "location": "Nucleus",
+          "consumed": false
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Nucleus",
+          "consumed": false
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 6,
+          "amount": 1,
+          "location": "Nucleus"
+        }
+      ],
+      "chance": 7.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 27,
+      "name": "Import of capsid proteins into nucleus",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "Cytosol",
+      "target_location": "Nucleus",
+      "affected_entity_id": 12,
+      "location_change_chance": 50.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 28,
+      "name": "Assembly of new virions in nucleus",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Assembly of new virions in the nucleus",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 6,
+          "amount": 1,
+          "location": "Nucleus",
+          "consumed": true
+        },
+        {
+          "entity_id": 12,
+          "amount": 40,
+          "location": "Nucleus",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 2,
+          "amount": 1,
+          "location": "Nucleus"
+        }
+      ],
+      "chance": 50.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 29,
+      "name": "Lytic release of virions from nucleus",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "",
+      "is_global": true,
+      "inputs": [
+        {
+          "entity_id": 2,
+          "amount": 100,
+          "location": "Nucleus",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 2,
+          "amount": 100,
+          "location": "Extracellular"
+        }
+      ],
+      "chance": 75.0,
+      "interferon_production": 100.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
     }
   ],
   "genes": [
@@ -583,7 +1003,6 @@
       "effect_ids": [
         7,
         10,
-        11,
         17
       ],
       "description": "Enterovirus capsid proteins.",
@@ -682,7 +1101,14 @@
       "install_cost": 25,
       "length": 1089,
       "gene_type_entity_id": 12,
-      "effect_ids": [],
+      "effect_ids": [
+        17,
+        18,
+        19,
+        20,
+        27,
+        28
+      ],
       "description": "BKV VP1 mediates entry through endosome to ER and ultimately release into cytoplasm",
       "is_utr": false,
       "is_polymerase": false,
@@ -696,7 +1122,9 @@
       "install_cost": 30,
       "length": 1700,
       "gene_type_entity_id": 12,
-      "effect_ids": [],
+      "effect_ids": [
+        21
+      ],
       "description": "BKV VP2 and VP3 mediate transport of viral genome complex into the nucleus.",
       "is_utr": false,
       "is_polymerase": false,
@@ -710,7 +1138,10 @@
       "install_cost": 40,
       "length": 2400,
       "gene_type_entity_id": 18,
-      "effect_ids": [],
+      "effect_ids": [
+        25,
+        26
+      ],
       "description": "BKV master replication protein. Origin binding and helicase function.",
       "is_utr": false,
       "is_polymerase": false,
