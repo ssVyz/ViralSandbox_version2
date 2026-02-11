@@ -1,6 +1,6 @@
 {
-  "db_version": 46,
-  "last_modified": "2026-02-10T17:48:23",
+  "db_version": 51,
+  "last_modified": "2026-02-11T20:53:13",
   "entities": [
     {
       "id": 1,
@@ -174,7 +174,7 @@
     },
     {
       "id": 7,
-      "name": "Direct genome release",
+      "name": "Direct genome release by pore threading",
       "effect_type": "Transition",
       "category": "",
       "description": "Enterovirus-like threading of genome through a pore",
@@ -861,7 +861,7 @@
         }
       ],
       "chance": 7.0,
-      "interferon_production": 0.0,
+      "interferon_production": 0.5,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -1262,23 +1262,23 @@
       "Endosome": 10.0,
       "ER": 10.0,
       "Cytosol": 10.0,
-      "Nucleus": 2.0
+      "Nucleus": 3.0
     },
     "RNA": {
       "Extracellular": 80.0,
       "Membrane": 80.0,
       "Endosome": 30.0,
-      "ER": 15.0,
-      "Cytosol": 15.0,
-      "Nucleus": 15.0
+      "ER": 20.0,
+      "Cytosol": 20.0,
+      "Nucleus": 20.0
     },
     "Protein": {
       "Extracellular": 50.0,
       "Membrane": 50.0,
-      "Endosome": 15.0,
-      "ER": 10.0,
-      "Cytosol": 10.0,
-      "Nucleus": 5.0
+      "Endosome": 20.0,
+      "ER": 15.0,
+      "Cytosol": 15.0,
+      "Nucleus": 15.0
     }
   },
   "interferon_modifiers": {

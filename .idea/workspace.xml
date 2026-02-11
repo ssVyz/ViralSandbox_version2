@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6c0d9d56-d4bd-4466-9054-e5b44d5f0579" name="Changes" comment="Modify effect change">
+    <list default="true" id="6c0d9d56-d4bd-4466-9054-e5b44d5f0579" name="Changes" comment="Antibody implementation">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/database.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database_editor.py" beforeDir="false" afterPath="$PROJECT_DIR$/database_editor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/play_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/play_module.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -205,7 +202,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770186952898</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Antibody implementation">
+      <option name="closed" value="true" />
+      <created>1770188094816</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1770188094816</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -225,6 +230,7 @@
     <MESSAGE value="added readme" />
     <MESSAGE value="simulation controls" />
     <MESSAGE value="Modify effect change" />
-    <option name="LAST_COMMIT_MESSAGE" value="Modify effect change" />
+    <MESSAGE value="Antibody implementation" />
+    <option name="LAST_COMMIT_MESSAGE" value="Antibody implementation" />
   </component>
 </project>
