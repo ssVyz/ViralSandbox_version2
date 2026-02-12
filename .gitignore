@@ -3,3 +3,4 @@ test_databases/
 .claude/
 .venv/
 __pycache__/
+nul
