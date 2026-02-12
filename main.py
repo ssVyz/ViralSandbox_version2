@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox, filedialog
 from database_editor import DatabaseEditor
 from database import GameDatabase
 from game_state import GameState
-from builder import BuilderModule
+from builder import BuilderModule, GENE_COLOR_CATEGORY_COLORS, DEFAULT_GENE_COLOR
 from play_module import PlayModule
 
 
@@ -471,26 +471,39 @@ class GeneOfferDialog(tk.Toplevel):
             text=f"Round {self.game_state.current_round}/{self.game_state.max_rounds} complete!"
         ).pack()
 
-        # Gene list
+        # Gene list with color-coded names
         list_frame = ttk.Frame(main_frame)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
-        scrollbar = ttk.Scrollbar(list_frame)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas = tk.Canvas(list_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=canvas.yview)
+        self.gene_list_inner = tk.Frame(canvas)
 
-        self.gene_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set,
-                                        font=('TkDefaultFont', 11), height=8)
-        self.gene_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.config(command=self.gene_listbox.yview)
+        self.gene_list_inner.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0, 0), window=self.gene_list_inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Mousewheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        self.bind("<Destroy>", lambda e: canvas.unbind_all("<MouseWheel>"))
+
+        # Track selection state
+        self._gene_rows = []  # list of (gene_id, row_frame, label_widgets)
+        self._selected_index = None
 
         # Populate list
-        for gene_id in self.offered_gene_ids:
+        for i, gene_id in enumerate(self.offered_gene_ids):
             gene = self.game_state.database.get_gene(gene_id)
             if gene:
-                self.gene_listbox.insert(tk.END,
-                    f"({gene.set_name}) {gene.name} - {gene.install_cost} EP, {gene.length} bp")
-
-        self.gene_listbox.bind('<<ListboxSelect>>', self._on_select)
+                self._create_gene_offer_row(gene, i)
 
         # Details area
         details_frame = ttk.LabelFrame(main_frame, text="Gene Details")
@@ -509,16 +522,59 @@ class GeneOfferDialog(tk.Toplevel):
         ttk.Button(btn_frame, text="Skip",
                    command=self._skip).pack(side=tk.RIGHT, padx=5)
 
-    def _on_select(self, event):
-        """Handle gene selection."""
-        selection = self.gene_listbox.curselection()
-        if not selection:
-            return
+    def _create_gene_offer_row(self, gene, index: int):
+        """Create a single gene row with color-coded name."""
+        row_frame = tk.Frame(self.gene_list_inner, cursor="hand2")
+        row_frame.pack(fill=tk.X, padx=2, pady=1)
 
-        idx = selection[0]
-        gene_id = self.offered_gene_ids[idx]
+        name_fg = GENE_COLOR_CATEGORY_COLORS.get(gene.color_category, DEFAULT_GENE_COLOR)
+        base_fg = DEFAULT_GENE_COLOR
+        bg = row_frame.cget('bg')
+
+        prefix_label = tk.Label(row_frame, text=f"({gene.set_name}) ",
+                                fg=base_fg, bg=bg, font=('TkDefaultFont', 11),
+                                cursor="hand2")
+        prefix_label.pack(side=tk.LEFT)
+
+        name_label = tk.Label(row_frame, text=gene.name,
+                              fg=name_fg, bg=bg, font=('TkDefaultFont', 11),
+                              cursor="hand2")
+        name_label.pack(side=tk.LEFT)
+
+        suffix_label = tk.Label(row_frame, text=f" - {gene.install_cost} EP, {gene.length} bp",
+                                fg=base_fg, bg=bg, font=('TkDefaultFont', 11),
+                                cursor="hand2")
+        suffix_label.pack(side=tk.LEFT)
+
+        labels = [prefix_label, name_label, suffix_label]
+        self._gene_rows.append((gene.id, row_frame, labels, name_fg))
+
+        # Bind click on row and all labels
+        for widget in [row_frame] + labels:
+            widget.bind("<Button-1>", lambda e, idx=index: self._on_row_click(idx))
+
+    def _on_row_click(self, index: int):
+        """Handle clicking a gene row."""
+        # Deselect previous
+        if self._selected_index is not None and self._selected_index < len(self._gene_rows):
+            _, prev_frame, prev_labels, prev_name_fg = self._gene_rows[self._selected_index]
+            prev_bg = 'SystemButtonFace'  # default tk bg
+            prev_frame.configure(bg=prev_bg, relief=tk.FLAT, borderwidth=0)
+            for i, lbl in enumerate(prev_labels):
+                fg = prev_name_fg if i == 1 else DEFAULT_GENE_COLOR
+                lbl.configure(bg=prev_bg, fg=fg)
+
+        # Select new
+        self._selected_index = index
+        gene_id, row_frame, labels, _ = self._gene_rows[index]
+        sel_bg = '#cce5ff'
+        sel_fg = '#004085'
+        row_frame.configure(bg=sel_bg, relief=tk.SOLID, borderwidth=1)
+        for lbl in labels:
+            lbl.configure(bg=sel_bg, fg=sel_fg)
+
+        # Update details
         gene = self.game_state.database.get_gene(gene_id)
-
         if gene:
             self.details_text.configure(state='normal')
             self.details_text.delete('1.0', tk.END)
@@ -528,13 +584,12 @@ class GeneOfferDialog(tk.Toplevel):
 
     def _select_gene(self):
         """Select the highlighted gene."""
-        selection = self.gene_listbox.curselection()
-        if not selection:
+        if self._selected_index is None:
             messagebox.showwarning("No Selection", "Please select a gene.")
             return
 
-        idx = selection[0]
-        self.selected_gene = self.offered_gene_ids[idx]
+        gene_id = self._gene_rows[self._selected_index][0]
+        self.selected_gene = gene_id
         self.destroy()
 
     def _skip(self):
