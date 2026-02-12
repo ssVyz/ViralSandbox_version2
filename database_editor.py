@@ -994,6 +994,14 @@ class DatabaseEditor(tk.Toplevel):
                         variable=self.gene_is_polymerase_var).grid(row=row, column=0, columnspan=2, sticky='w', pady=2)
 
         row += 1
+        ttk.Label(right_frame, text="Color Category:").grid(row=row, column=0, sticky='w', pady=2)
+        self.gene_color_category_var = tk.StringVar()
+        color_category_values = ["(None)", "Replication", "Capsid", "Surface", "Regulatory"]
+        self.gene_color_category_combo = ttk.Combobox(right_frame, textvariable=self.gene_color_category_var,
+                                                       values=color_category_values, state='readonly', width=37)
+        self.gene_color_category_combo.grid(row=row, column=1, sticky='w', pady=2)
+
+        row += 1
         ttk.Label(right_frame, text="Required Genome:").grid(row=row, column=0, sticky='w', pady=2)
         self.gene_genome_type_var = tk.StringVar()
         genome_type_values = [
@@ -1094,6 +1102,12 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_is_utr_var.set(gene.is_utr)
         self.gene_is_polymerase_var.set(gene.is_polymerase)
 
+        # Set color category
+        if gene.color_category:
+            self.gene_color_category_var.set(gene.color_category)
+        else:
+            self.gene_color_category_var.set("(None)")
+
         # Set required genome type
         if gene.required_genome_type:
             self.gene_genome_type_var.set(gene.required_genome_type)
@@ -1139,6 +1153,7 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_type_var.set("None")
         self.gene_is_utr_var.set(False)
         self.gene_is_polymerase_var.set(False)
+        self.gene_color_category_var.set("(None)")
         self.gene_genome_type_var.set("(None)")
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_effects_listbox.delete(0, tk.END)
@@ -1200,6 +1215,12 @@ class DatabaseEditor(tk.Toplevel):
             except (ValueError, IndexError):
                 pass
 
+        # Parse color category
+        color_category_selection = self.gene_color_category_var.get()
+        color_category = ""
+        if color_category_selection and color_category_selection != "(None)":
+            color_category = color_category_selection
+
         # Parse required genome type
         genome_type_selection = self.gene_genome_type_var.get()
         required_genome_type = ""
@@ -1218,7 +1239,8 @@ class DatabaseEditor(tk.Toplevel):
             is_utr=self.gene_is_utr_var.get(),
             is_polymerase=self.gene_is_polymerase_var.get(),
             abbreviation=self.gene_abbrev_var.get().strip(),
-            required_genome_type=required_genome_type
+            required_genome_type=required_genome_type,
+            color_category=color_category
         )
 
         if gene_id in self.database.genes:

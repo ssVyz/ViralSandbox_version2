@@ -8,6 +8,15 @@ from typing import Optional, Callable
 from game_state import GameState, VirusConfig
 from models import Gene, Effect
 
+# Color category mapping for gene name display
+GENE_COLOR_CATEGORY_COLORS = {
+    "Replication": "#1b7a1b",   # dark green
+    "Capsid": "#1a5fb4",        # medium-dark blue
+    "Surface": "#a67c00",       # dark gold
+    "Regulatory": "#6a1b9a",    # dark purple
+}
+DEFAULT_GENE_COLOR = "#1a3a5c"  # dark navy blue
+
 
 class BuilderModule(tk.Toplevel):
     """Builder module window."""
@@ -711,31 +720,56 @@ class BuilderModule(tk.Toplevel):
         is_genome_incompatible = (panel == 'installed' and
                                    not self.game_state.is_gene_genome_compatible(gene))
 
-        # Gene info with color based on affordability, selection, and genome compatibility
+        # Determine colors based on state
         font_style = ('TkDefaultFont', 10, 'italic') if is_genome_incompatible else None
+        is_unaffordable = (panel == 'available' and
+                           gene.install_cost > self.game_state.evolution_points)
+        is_error_state = is_unaffordable or is_genome_incompatible
+
         if is_selected:
             bg_color = '#cce5ff'
-            fg_color = '#004085'
-        elif panel == 'available':
+            base_fg = '#004085'
+            name_fg = '#004085'
+        elif is_error_state:
             bg_color = gene_frame.cget('bg')
-            fg_color = 'blue' if gene.install_cost <= self.game_state.evolution_points else 'red'
+            base_fg = 'red'
+            name_fg = 'red'
         else:
             bg_color = gene_frame.cget('bg')
-            fg_color = 'red' if is_genome_incompatible else 'dark green'
+            base_fg = DEFAULT_GENE_COLOR
+            name_fg = GENE_COLOR_CATEGORY_COLORS.get(gene.color_category, DEFAULT_GENE_COLOR)
 
-        # Add special gene indicators
+        # Build text parts
+        prefix_text = f"({gene.set_name}) "
+        name_text = gene.name
         utr_indicator = " [UTR]" if gene.is_utr else ""
         poly_indicator = " [Pol]" if gene.is_polymerase else ""
-        # Add genome incompatibility indicator
         genome_indicator = " - Wrong genome type" if is_genome_incompatible else ""
-        gene_text = f"({gene.set_name}) {gene.name} [{gene.install_cost} EP]{utr_indicator}{poly_indicator}{genome_indicator}"
+        suffix_text = f" [{gene.install_cost} EP]{utr_indicator}{poly_indicator}{genome_indicator}"
 
-        gene_label = tk.Label(gene_frame, text=gene_text, cursor="hand2",
-                             fg=fg_color, bg=bg_color if is_selected else gene_frame.cget('bg'))
+        # Create three labels: prefix (set name), gene name (colored), suffix (cost/indicators)
+        actual_bg = bg_color if is_selected else gene_frame.cget('bg')
+
+        prefix_label = tk.Label(gene_frame, text=prefix_text, cursor="hand2",
+                                fg=base_fg, bg=actual_bg)
         if font_style:
-            gene_label.configure(font=font_style)
-        gene_label.pack(side=tk.LEFT, padx=5)
-        gene_label.bind("<Button-1>", lambda e, g=gene, p=panel: self._select_gene(g, p))
+            prefix_label.configure(font=font_style)
+        prefix_label.pack(side=tk.LEFT, padx=(5, 0))
+        prefix_label.bind("<Button-1>", lambda e, g=gene, p=panel: self._select_gene(g, p))
+
+        name_label = tk.Label(gene_frame, text=name_text, cursor="hand2",
+                              fg=name_fg, bg=actual_bg)
+        if font_style:
+            name_label.configure(font=font_style)
+        name_label.pack(side=tk.LEFT)
+        name_label.bind("<Button-1>", lambda e, g=gene, p=panel: self._select_gene(g, p))
+
+        suffix_label = tk.Label(gene_frame, text=suffix_text, cursor="hand2",
+                                fg=base_fg, bg=actual_bg)
+        if font_style:
+            suffix_label.configure(font=font_style)
+        suffix_label.pack(side=tk.LEFT)
+        suffix_label.bind("<Button-1>", lambda e, g=gene, p=panel: self._select_gene(g, p))
 
         # Show effects if expanded
         if is_expanded:

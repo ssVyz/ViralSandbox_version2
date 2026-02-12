@@ -216,6 +216,7 @@ class Gene:
     is_polymerase: bool = False  # If True, this gene is a polymerase (only one allowed per virus)
     abbreviation: str = ""  # Optional short name for display in tight spaces
     required_genome_type: str = ""  # Genome type required for this gene's effects to work (empty = any)
+    color_category: str = ""  # Color category for display: "Replication", "Capsid", "Surface", "Regulatory", or "" for none
 
     def get_display_name(self, use_abbreviation: bool = False) -> str:
         """Get the name to display, using abbreviation if requested and available."""
@@ -236,7 +237,8 @@ class Gene:
             "is_utr": self.is_utr,
             "is_polymerase": self.is_polymerase,
             "abbreviation": self.abbreviation,
-            "required_genome_type": self.required_genome_type
+            "required_genome_type": self.required_genome_type,
+            "color_category": self.color_category
         }
 
     @classmethod
@@ -262,7 +264,8 @@ class Gene:
             is_utr=data.get("is_utr", False),
             is_polymerase=data.get("is_polymerase", False),
             abbreviation=data.get("abbreviation", ""),
-            required_genome_type=data.get("required_genome_type", "")
+            required_genome_type=data.get("required_genome_type", ""),
+            color_category=data.get("color_category", "")
         )
 
 
