@@ -1,6 +1,6 @@
 {
-  "db_version": 59,
-  "last_modified": "2026-02-12T10:35:01",
+  "db_version": 60,
+  "last_modified": "2026-02-12T11:06:21",
   "entities": [
     {
       "id": 1,
@@ -223,7 +223,7 @@
     },
     {
       "id": 8,
-      "name": "RdRp activity (picrona-like) - positive-strand",
+      "name": "RdRp activity (picorna-like) - positive-strand",
       "effect_type": "Transition",
       "category": "picornardrp",
       "description": "RdRp activity",
@@ -269,7 +269,7 @@
     },
     {
       "id": 9,
-      "name": "RdRp activity (picrona-like) - negative-strand",
+      "name": "RdRp activity (picorna-like) - negative-strand",
       "effect_type": "Transition",
       "category": "picornardrp",
       "description": "RdRp activity",
@@ -441,8 +441,8 @@
       "requires_genome_type": "",
       "target_effect_id": null,
       "target_category": "picornardrp",
-      "chance_modifier": 150.0,
-      "interferon_modifier": 100.0,
+      "chance_modifier": 133.3,
+      "interferon_modifier": 120.0,
       "antibody_modifier": 100.0,
       "source_location": "",
       "target_location": "",
@@ -481,7 +481,7 @@
           "location": "Cytosol"
         }
       ],
-      "translation_chance": 100.0,
+      "translation_chance": 66.0,
       "orf_targeting": "ORF-1 only",
       "self_cleavage_chance": 0.0
     },
@@ -600,7 +600,7 @@
       "source_location": "Membrane",
       "target_location": "Endosome",
       "affected_entity_id": 8,
-      "location_change_chance": 50.0,
+      "location_change_chance": 40.0,
       "templates": [],
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
@@ -1232,6 +1232,46 @@
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
       "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 35,
+      "name": "Receptor binding to membrane",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 1,
+          "amount": 1,
+          "location": "Extracellular",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 8,
+          "amount": 1,
+          "location": "Membrane"
+        }
+      ],
+      "chance": 15.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
     }
   ],
   "genes": [
@@ -1338,7 +1378,9 @@
       "gene_type_entity_id": 11,
       "effect_ids": [
         8,
-        9
+        9,
+        32,
+        33
       ],
       "description": "Enterovirus RdRp",
       "is_utr": false,
@@ -1592,6 +1634,22 @@
       "required_genome_type": "",
       "color_category": "Regulatory",
       "domain_entity_id": null
+    },
+    {
+      "id": 27,
+      "name": "Downstream hairpin loop region",
+      "set_name": "CHIKV",
+      "install_cost": 25,
+      "length": 300,
+      "gene_type_entity_id": null,
+      "effect_ids": [],
+      "description": "Allows translation despite host response. Ingame: greatly increases translation of subgenomic RNA",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "DLP",
+      "required_genome_type": "",
+      "color_category": "Regulatory",
+      "domain_entity_id": 12
     }
   ],
   "milestones": [
