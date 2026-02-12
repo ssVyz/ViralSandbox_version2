@@ -1002,6 +1002,13 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_color_category_combo.grid(row=row, column=1, sticky='w', pady=2)
 
         row += 1
+        ttk.Label(right_frame, text="Domain (requires adj. type):").grid(row=row, column=0, sticky='w', pady=2)
+        self.gene_domain_var = tk.StringVar()
+        self.gene_domain_combo = ttk.Combobox(right_frame, textvariable=self.gene_domain_var,
+                                               values=["Not a domain"], state='readonly', width=37)
+        self.gene_domain_combo.grid(row=row, column=1, sticky='w', pady=2)
+
+        row += 1
         ttk.Label(right_frame, text="Required Genome:").grid(row=row, column=0, sticky='w', pady=2)
         self.gene_genome_type_var = tk.StringVar()
         genome_type_values = [
@@ -1053,10 +1060,17 @@ class DatabaseEditor(tk.Toplevel):
         values = ["None"] + [f"[{e.id}] {e.name}" for e in sorted(protein_entities, key=lambda e: e.id)]
         self.gene_type_combo['values'] = values
 
+    def _update_domain_values(self):
+        """Update the domain combobox with current protein entities."""
+        protein_entities = self.database.get_protein_entities()
+        values = ["Not a domain"] + [f"[{e.id}] {e.name}" for e in sorted(protein_entities, key=lambda e: e.id)]
+        self.gene_domain_combo['values'] = values
+
     def _filter_genes(self):
         """Filter the gene list based on search."""
         # Update gene type dropdown values
         self._update_gene_type_values()
+        self._update_domain_values()
 
         search = self.gene_search_var.get().lower()
         self.gene_listbox.delete(0, tk.END)
@@ -1108,6 +1122,16 @@ class DatabaseEditor(tk.Toplevel):
         else:
             self.gene_color_category_var.set("(None)")
 
+        # Set domain
+        if gene.domain_entity_id is not None:
+            entity = self.database.get_entity(gene.domain_entity_id)
+            if entity and entity.category == "Protein":
+                self.gene_domain_var.set(f"[{entity.id}] {entity.name}")
+            else:
+                self.gene_domain_var.set("Not a domain")
+        else:
+            self.gene_domain_var.set("Not a domain")
+
         # Set required genome type
         if gene.required_genome_type:
             self.gene_genome_type_var.set(gene.required_genome_type)
@@ -1154,6 +1178,7 @@ class DatabaseEditor(tk.Toplevel):
         self.gene_is_utr_var.set(False)
         self.gene_is_polymerase_var.set(False)
         self.gene_color_category_var.set("(None)")
+        self.gene_domain_var.set("Not a domain")
         self.gene_genome_type_var.set("(None)")
         self.gene_desc_text.delete('1.0', tk.END)
         self.gene_effects_listbox.delete(0, tk.END)
@@ -1221,6 +1246,15 @@ class DatabaseEditor(tk.Toplevel):
         if color_category_selection and color_category_selection != "(None)":
             color_category = color_category_selection
 
+        # Parse domain entity ID
+        domain_selection = self.gene_domain_var.get()
+        domain_entity_id = None
+        if domain_selection and domain_selection != "Not a domain":
+            try:
+                domain_entity_id = int(domain_selection.split(']')[0][1:])
+            except (ValueError, IndexError):
+                pass
+
         # Parse required genome type
         genome_type_selection = self.gene_genome_type_var.get()
         required_genome_type = ""
@@ -1240,7 +1274,8 @@ class DatabaseEditor(tk.Toplevel):
             is_polymerase=self.gene_is_polymerase_var.get(),
             abbreviation=self.gene_abbrev_var.get().strip(),
             required_genome_type=required_genome_type,
-            color_category=color_category
+            color_category=color_category,
+            domain_entity_id=domain_entity_id
         )
 
         if gene_id in self.database.genes:

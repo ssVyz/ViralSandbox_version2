@@ -680,6 +680,56 @@ class GameState:
                     incompatible.add(gene.id)
         return incompatible
 
+    def is_domain_gene_active_at(self, idx: int) -> bool:
+        """Check if a domain gene at the given index in installed_genes is active.
+
+        A domain gene is active if it is directly adjacent (index ± 1) to a gene
+        whose gene_type_entity_id matches the domain gene's domain_entity_id.
+        ORF/Terminator markers break adjacency.
+
+        Non-domain genes (domain_entity_id is None) are always active.
+        """
+        item = self.installed_genes[idx]
+        if self.is_marker(item):
+            return True  # Markers are not genes
+
+        gene = self.get_gene(item)
+        if not gene or gene.domain_entity_id is None:
+            return True  # Not a domain gene, always active
+
+        # Check neighbor above (idx - 1)
+        if idx > 0:
+            neighbor = self.installed_genes[idx - 1]
+            if not self.is_marker(neighbor):
+                neighbor_gene = self.get_gene(neighbor)
+                if neighbor_gene and neighbor_gene.gene_type_entity_id == gene.domain_entity_id:
+                    return True
+
+        # Check neighbor below (idx + 1)
+        if idx < len(self.installed_genes) - 1:
+            neighbor = self.installed_genes[idx + 1]
+            if not self.is_marker(neighbor):
+                neighbor_gene = self.get_gene(neighbor)
+                if neighbor_gene and neighbor_gene.gene_type_entity_id == gene.domain_entity_id:
+                    return True
+
+        return False
+
+    def get_inactive_domain_gene_positions(self) -> set:
+        """Get set of indices in installed_genes where domain genes are inactive.
+
+        Returns indices (not gene IDs) since the same gene ID could appear
+        at multiple positions with different adjacency results.
+        """
+        inactive = set()
+        for idx, item in enumerate(self.installed_genes):
+            if not self.is_marker(item):
+                gene = self.get_gene(item)
+                if gene and gene.domain_entity_id is not None:
+                    if not self.is_domain_gene_active_at(idx):
+                        inactive.add(idx)
+        return inactive
+
     def can_entity_exist(self, entity_id: int) -> bool:
         """Check if an entity can exist based on enabled types.
 
@@ -780,12 +830,15 @@ class GameState:
                            based on enabled types, ORFs, genome compatibility, etc.
         """
         effect_ids = set()
-        for item in self.installed_genes:
+        for idx, item in enumerate(self.installed_genes):
             if not self.is_marker(item):
                 gene = self.get_gene(item)
                 if gene:
                     # Skip effects from genes with incompatible genome type
                     if not self.is_gene_genome_compatible(gene):
+                        continue
+                    # Skip effects from inactive domain genes
+                    if not self.is_domain_gene_active_at(idx):
                         continue
                     effect_ids.update(gene.effect_ids)
 

@@ -217,6 +217,7 @@ class Gene:
     abbreviation: str = ""  # Optional short name for display in tight spaces
     required_genome_type: str = ""  # Genome type required for this gene's effects to work (empty = any)
     color_category: str = ""  # Color category for display: "Replication", "Capsid", "Surface", "Regulatory", or "" for none
+    domain_entity_id: Optional[int] = None  # Protein entity ID this gene is a domain of; None = not a domain
 
     def get_display_name(self, use_abbreviation: bool = False) -> str:
         """Get the name to display, using abbreviation if requested and available."""
@@ -238,7 +239,8 @@ class Gene:
             "is_polymerase": self.is_polymerase,
             "abbreviation": self.abbreviation,
             "required_genome_type": self.required_genome_type,
-            "color_category": self.color_category
+            "color_category": self.color_category,
+            "domain_entity_id": self.domain_entity_id
         }
 
     @classmethod
@@ -265,7 +267,8 @@ class Gene:
             is_polymerase=data.get("is_polymerase", False),
             abbreviation=data.get("abbreviation", ""),
             required_genome_type=data.get("required_genome_type", ""),
-            color_category=data.get("color_category", "")
+            color_category=data.get("color_category", ""),
+            domain_entity_id=data.get("domain_entity_id")
         )
 
 

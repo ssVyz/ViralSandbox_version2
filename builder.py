@@ -684,7 +684,7 @@ class BuilderModule(tk.Toplevel):
         for widget in self.installed_frame.winfo_children():
             widget.destroy()
 
-        for item in self.game_state.installed_genes:
+        for idx, item in enumerate(self.game_state.installed_genes):
             if self.game_state.is_orf(item):
                 self._create_orf_entry(self.installed_frame, item)
             elif self.game_state.is_terminator(item):
@@ -692,9 +692,9 @@ class BuilderModule(tk.Toplevel):
             else:
                 gene = self.game_state.get_gene(item)
                 if gene:
-                    self._create_gene_entry(self.installed_frame, gene, 'installed')
+                    self._create_gene_entry(self.installed_frame, gene, 'installed', installed_idx=idx)
 
-    def _create_gene_entry(self, parent, gene: Gene, panel: str):
+    def _create_gene_entry(self, parent, gene: Gene, panel: str, installed_idx: int = -1):
         """Create a gene entry with expandable effects."""
         expanded_set = self.available_expanded if panel == 'available' else self.installed_expanded
         is_expanded = gene.id in expanded_set
@@ -720,11 +720,16 @@ class BuilderModule(tk.Toplevel):
         is_genome_incompatible = (panel == 'installed' and
                                    not self.game_state.is_gene_genome_compatible(gene))
 
+        # Check if domain gene is inactive (only for installed panel)
+        is_domain_inactive = (panel == 'installed' and installed_idx >= 0 and
+                              not self.game_state.is_domain_gene_active_at(installed_idx))
+
         # Determine colors based on state
-        font_style = ('TkDefaultFont', 10, 'italic') if is_genome_incompatible else None
+        is_inactive = is_genome_incompatible or is_domain_inactive
+        font_style = ('TkDefaultFont', 10, 'italic') if is_inactive else None
         is_unaffordable = (panel == 'available' and
                            gene.install_cost > self.game_state.evolution_points)
-        is_error_state = is_unaffordable or is_genome_incompatible
+        is_error_state = is_unaffordable or is_inactive
 
         if is_selected:
             bg_color = '#cce5ff'
@@ -744,8 +749,21 @@ class BuilderModule(tk.Toplevel):
         name_text = gene.name
         utr_indicator = " [UTR]" if gene.is_utr else ""
         poly_indicator = " [Pol]" if gene.is_polymerase else ""
-        genome_indicator = " - Wrong genome type" if is_genome_incompatible else ""
-        suffix_text = f" [{gene.install_cost} EP]{utr_indicator}{poly_indicator}{genome_indicator}"
+        # Domain tag shown in available panel for informational purposes
+        domain_tag = ""
+        if gene.domain_entity_id is not None:
+            if panel == 'available':
+                domain_tag = " [Dom]"
+        # Status indicators for installed panel
+        genome_indicator = ""
+        domain_indicator = ""
+        if is_genome_incompatible:
+            genome_indicator = " - Wrong genome type"
+        elif is_domain_inactive:
+            domain_entity = self.game_state.database.get_entity(gene.domain_entity_id)
+            domain_type_name = domain_entity.name if domain_entity else "Unknown"
+            domain_indicator = f" - No adjacent {domain_type_name}"
+        suffix_text = f" [{gene.install_cost} EP]{utr_indicator}{poly_indicator}{domain_tag}{genome_indicator}{domain_indicator}"
 
         # Create three labels: prefix (set name), gene name (colored), suffix (cost/indicators)
         actual_bg = bg_color if is_selected else gene_frame.cget('bg')
