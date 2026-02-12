@@ -73,6 +73,7 @@ class ViralEntity:
     entity_type: str = "None"  # EntityType value
     description: str = ""
     abbreviation: str = ""  # Optional short name for display in tight spaces
+    degradation_modifier: float = 100.0  # Percentage modifier for base degradation chance (100 = no change)
 
     def get_display_name(self, use_abbreviation: bool = False) -> str:
         """Get the name to display, using abbreviation if requested and available."""
@@ -87,7 +88,8 @@ class ViralEntity:
             "category": self.category,
             "entity_type": self.entity_type,
             "description": self.description,
-            "abbreviation": self.abbreviation
+            "abbreviation": self.abbreviation,
+            "degradation_modifier": self.degradation_modifier
         }
 
     @classmethod
@@ -98,7 +100,8 @@ class ViralEntity:
             category=data["category"],
             entity_type=data.get("entity_type", "None"),
             description=data.get("description", ""),
-            abbreviation=data.get("abbreviation", "")
+            abbreviation=data.get("abbreviation", ""),
+            degradation_modifier=data.get("degradation_modifier", 100.0)
         )
 
 

@@ -207,6 +207,14 @@ class DatabaseEditor(tk.Toplevel):
         self.entity_desc_text.grid(row=row, column=1, sticky='w', pady=2)
 
         row += 1
+        ttk.Label(right_frame, text="Degradation Modifier (%):").grid(row=row, column=0, sticky='w', pady=2)
+        self.entity_degrad_mod_var = tk.StringVar(value="100")
+        degrad_frame = ttk.Frame(right_frame)
+        degrad_frame.grid(row=row, column=1, sticky='w', pady=2)
+        ttk.Entry(degrad_frame, textvariable=self.entity_degrad_mod_var, width=10).pack(side=tk.LEFT)
+        ttk.Label(degrad_frame, text="(100 = base rate, 50 = half, 200 = double)").pack(side=tk.LEFT, padx=5)
+
+        row += 1
         btn_row = ttk.Frame(right_frame)
         btn_row.grid(row=row, column=0, columnspan=2, sticky='w', pady=10)
         ttk.Button(btn_row, text="Save Entity", command=self._save_entity).pack(side=tk.LEFT, padx=2)
@@ -259,6 +267,7 @@ class DatabaseEditor(tk.Toplevel):
             self.entity_type_var.set(entity.entity_type)
             self.entity_desc_text.delete('1.0', tk.END)
             self.entity_desc_text.insert('1.0', entity.description)
+            self.entity_degrad_mod_var.set(str(entity.degradation_modifier))
             self.current_selection = ('entity', entity.id)
             # Update type field display based on category
             self._on_entity_category_change()
@@ -289,6 +298,7 @@ class DatabaseEditor(tk.Toplevel):
         self.entity_category_var.set("")
         self.entity_type_var.set("None")
         self.entity_desc_text.delete('1.0', tk.END)
+        self.entity_degrad_mod_var.set("100")
         self.entity_type_label.grid_remove()
         self.current_selection = None
 
@@ -307,13 +317,20 @@ class DatabaseEditor(tk.Toplevel):
         entity_id_str = self.entity_id_var.get()
         entity_id = int(entity_id_str) if entity_id_str else 0
 
+        try:
+            degradation_modifier = float(self.entity_degrad_mod_var.get() or 100)
+        except ValueError:
+            messagebox.showerror("Error", "Degradation modifier must be a number.")
+            return
+
         entity = ViralEntity(
             id=entity_id,
             name=name,
             category=category,
             entity_type=self.entity_type_var.get() or "None",
             description=self.entity_desc_text.get('1.0', tk.END).strip(),
-            abbreviation=self.entity_abbrev_var.get().strip()
+            abbreviation=self.entity_abbrev_var.get().strip(),
+            degradation_modifier=degradation_modifier
         )
 
         if entity_id in self.database.entities:

@@ -920,6 +920,10 @@ class PlayModule(tk.Toplevel):
             category = entity.category
             base_chance = self.game_state.database.get_degradation_chance(category, location)
 
+            # Apply entity-specific degradation modifier before other modifiers
+            base_chance = base_chance * (entity.degradation_modifier / 100.0)
+            base_chance = min(100.0, base_chance)
+
             # Apply interferon effect (only affects intracellular locations)
             if location != CellLocation.EXTRACELLULAR.value and interferon_level > 0:
                 # Get per-category interferon modifier (% increase at max interferon)
@@ -957,6 +961,10 @@ class PlayModule(tk.Toplevel):
 
             category = entity.category
             base_chance = self.game_state.database.get_degradation_chance(category, location)
+
+            # Apply entity-specific degradation modifier before other modifiers
+            base_chance = base_chance * (entity.degradation_modifier / 100.0)
+            base_chance = min(100.0, base_chance)
 
             # Apply interferon effect (only affects intracellular locations)
             if location != CellLocation.EXTRACELLULAR.value and interferon_level > 0:
