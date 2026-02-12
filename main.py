@@ -434,7 +434,7 @@ class GeneOfferDialog(tk.Toplevel):
         self.selected_gene = None
 
         self.title("Select a Gene")
-        self.geometry("500x400")
+        self.geometry("500x550")
         self.transient(parent)
         self.grab_set()
 
