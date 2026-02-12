@@ -1,6 +1,6 @@
 {
-  "db_version": 66,
-  "last_modified": "2026-02-12T11:43:59",
+  "db_version": 75,
+  "last_modified": "2026-02-12T17:35:53",
   "entities": [
     {
       "id": 1,
@@ -8,7 +8,8 @@
       "category": "Virion",
       "entity_type": "None",
       "description": "A complete virus particle with a lipid envelope. This is a starter entity.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 2,
@@ -16,7 +17,8 @@
       "category": "Virion",
       "entity_type": "None",
       "description": "A naked virus particle without an envelope. This is a starter entity.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 3,
@@ -24,7 +26,8 @@
       "category": "RNA",
       "entity_type": "None",
       "description": "Positive-sense single-stranded RNA genome. Can be directly translated into proteins.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 4,
@@ -32,7 +35,8 @@
       "category": "RNA",
       "entity_type": "None",
       "description": "Negative-sense single-stranded RNA genome. Must be transcribed before translation.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 5,
@@ -40,7 +44,8 @@
       "category": "DNA",
       "entity_type": "None",
       "description": "Single-stranded DNA genome.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 6,
@@ -48,7 +53,8 @@
       "category": "DNA",
       "entity_type": "None",
       "description": "Double-stranded DNA genome.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 7,
@@ -56,7 +62,8 @@
       "category": "Protein",
       "entity_type": "Polyprotein",
       "description": "A large precursor protein that is cleaved into functional viral proteins.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 8,
@@ -64,7 +71,8 @@
       "category": "Virion",
       "entity_type": "None",
       "description": "A virion bound to receptor.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 11,
@@ -72,7 +80,8 @@
       "category": "Protein",
       "entity_type": "RNA-dep. RNA-Polymerase",
       "description": "Enzyme that synthesizes RNA from an RNA template",
-      "abbreviation": "RdRp"
+      "abbreviation": "RdRp",
+      "degradation_modifier": 100.0
     },
     {
       "id": 12,
@@ -80,7 +89,8 @@
       "category": "Protein",
       "entity_type": "Capsid Protein",
       "description": "Protein that forms the viral capsid",
-      "abbreviation": "cap"
+      "abbreviation": "cap",
+      "degradation_modifier": 100.0
     },
     {
       "id": 13,
@@ -88,7 +98,8 @@
       "category": "Protein",
       "entity_type": "Surface Glycoprotein",
       "description": "Protein on the viral surface for cell entry",
-      "abbreviation": "gp"
+      "abbreviation": "gp",
+      "degradation_modifier": 100.0
     },
     {
       "id": 14,
@@ -96,7 +107,8 @@
       "category": "Protein",
       "entity_type": "DNA Polymerase",
       "description": "Viral DNA Polymerase. Compies DNA.",
-      "abbreviation": "pol"
+      "abbreviation": "pol",
+      "degradation_modifier": 100.0
     },
     {
       "id": 15,
@@ -104,7 +116,8 @@
       "category": "Protein",
       "entity_type": "Regulatory protein",
       "description": "Small regulatory proteins",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 16,
@@ -112,7 +125,8 @@
       "category": "Protein",
       "entity_type": "Integrase",
       "description": "Can integrate viral DNA into the host chromosome.",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 17,
@@ -120,7 +134,8 @@
       "category": "Viral complex",
       "entity_type": "None",
       "description": "Partly unpacked virion",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 18,
@@ -128,7 +143,8 @@
       "category": "Protein",
       "entity_type": "Replication Co-factor",
       "description": "Protein interacting with viral replication. e.g. VPg",
-      "abbreviation": "rep"
+      "abbreviation": "rep",
+      "degradation_modifier": 100.0
     },
     {
       "id": 19,
@@ -136,7 +152,8 @@
       "category": "RNA",
       "entity_type": "None",
       "description": "Host transcribed and processed mRNA",
-      "abbreviation": ""
+      "abbreviation": "",
+      "degradation_modifier": 100.0
     },
     {
       "id": 20,
@@ -144,7 +161,17 @@
       "category": "RNA",
       "entity_type": "None",
       "description": "Viral sub-genomic RNA",
-      "abbreviation": "subRNA"
+      "abbreviation": "subRNA",
+      "degradation_modifier": 100.0
+    },
+    {
+      "id": 21,
+      "name": "Virion precursor",
+      "category": "Viral complex",
+      "entity_type": "None",
+      "description": "Unfinished assembly",
+      "abbreviation": "prec",
+      "degradation_modifier": 100.0
     }
   ],
   "effects": [
@@ -428,7 +455,7 @@
     },
     {
       "id": 13,
-      "name": "VPg enhanced RdRp function",
+      "name": "Enhanced picorna-like RdRp function",
       "effect_type": "Modify effect",
       "category": "",
       "description": "Protein primer facilitating RdRp function of picornaviruses",
@@ -1353,6 +1380,127 @@
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
       "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 39,
+      "name": "Release of genome complex into cytoplasm",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 8,
+          "amount": 1,
+          "location": "Endosome",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 17,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 50.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 40,
+      "name": "Uncoating in cytosol",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 17,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 0,
+          "amount": 1,
+          "location": "Cytosol",
+          "is_unpack_genome": true
+        }
+      ],
+      "chance": 75.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 41,
+      "name": "CP mediated assembly of new virions",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 3,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 12,
+          "amount": 70,
+          "location": "Cytosol",
+          "consumed": true
+        }
+      ],
+      "outputs": [],
+      "chance": 75.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
     }
   ],
   "genes": [
@@ -1608,7 +1756,9 @@
       "install_cost": 35,
       "length": 1300,
       "gene_type_entity_id": 18,
-      "effect_ids": [],
+      "effect_ids": [
+        13
+      ],
       "description": "Alphavirus ADP-riposyl-hydrolase. Removes ADP-ribosyl residues and acts as a scaffold for replication",
       "is_utr": false,
       "is_polymerase": false,
@@ -1624,7 +1774,9 @@
       "install_cost": 25,
       "length": 290,
       "gene_type_entity_id": null,
-      "effect_ids": [],
+      "effect_ids": [
+        36
+      ],
       "description": "HVD of Alphavirus nsp3. Interacts with a lot of host factors. Reduces replication related interferon response.",
       "is_utr": false,
       "is_polymerase": false,
@@ -1663,7 +1815,10 @@
       "install_cost": 40,
       "length": 783,
       "gene_type_entity_id": 12,
-      "effect_ids": [],
+      "effect_ids": [
+        40,
+        41
+      ],
       "description": "Alphavirus Capsid. A single protein builds the icosahedral shape.",
       "is_utr": false,
       "is_polymerase": false,
@@ -1679,7 +1834,10 @@
       "install_cost": 40,
       "length": 2500,
       "gene_type_entity_id": 13,
-      "effect_ids": [],
+      "effect_ids": [
+        35,
+        18
+      ],
       "description": "Alphavirus surface proteins. Mediates attachment and entry.",
       "is_utr": false,
       "is_polymerase": false,
