@@ -9,6 +9,7 @@ from database import GameDatabase
 from game_state import GameState
 from builder import BuilderModule, GENE_COLOR_CATEGORY_COLORS, DEFAULT_GENE_COLOR
 from play_module import PlayModule
+from settings import load_settings, save_settings
 
 
 class MainMenu(tk.Tk):
@@ -37,6 +38,9 @@ class MainMenu(tk.Tk):
         # Current game state
         self.game_state = None
         self.current_database = None
+
+        # Load settings
+        self.settings = load_settings()
 
         self._create_ui()
 
@@ -178,7 +182,7 @@ class MainMenu(tk.Tk):
         self.game_state = GameState.new_game(
             database=database,
             starting_ep=100,
-            starting_hand_size=7
+            starting_hand_size=self.settings["game"]["starting_hand_size"]
         )
 
         # Check if enough genes were drawn
@@ -215,7 +219,8 @@ class MainMenu(tk.Tk):
                 self,
                 self.game_state,
                 on_play=self._on_play_round,
-                on_quit=self._on_game_quit
+                on_quit=self._on_game_quit,
+                window_mode=self.settings["display"]["window_mode"]
             )
             # Hide main menu while playing
             self.withdraw()
@@ -233,7 +238,8 @@ class MainMenu(tk.Tk):
         self.play_module = PlayModule(
             self,
             self.game_state,
-            on_return=self._on_play_return
+            on_return=self._on_play_return,
+            window_mode=self.settings["display"]["window_mode"]
         )
 
     def _on_play_return(self, victory: bool = False):
@@ -270,7 +276,8 @@ class MainMenu(tk.Tk):
         # Show the builder module first (so dialog has a visible parent context)
         if self.builder_module:
             self.builder_module.deiconify()
-            self.builder_module.state('zoomed')
+            if self.settings["display"]["window_mode"] == "maximized":
+                self.builder_module.state('zoomed')
             self.builder_module.update()  # Process pending events
 
         # Offer new genes for next round
@@ -329,7 +336,10 @@ class MainMenu(tk.Tk):
 
     def _open_settings(self):
         """Open settings dialog."""
-        SettingsDialog(self)
+        dialog = SettingsDialog(self, self.settings)
+        self.wait_window(dialog)
+        # Reload settings in case they were saved
+        self.settings = load_settings()
 
     def _exit_game(self):
         """Exit the application."""
@@ -349,8 +359,9 @@ class MainMenu(tk.Tk):
 class SettingsDialog(tk.Toplevel):
     """Settings dialog window."""
 
-    def __init__(self, parent):
+    def __init__(self, parent, settings: dict):
         super().__init__(parent)
+        self.settings = settings
         self.title("Settings")
         self.geometry("400x300")
         self.transient(parent)
@@ -372,43 +383,33 @@ class SettingsDialog(tk.Toplevel):
         # Title
         ttk.Label(
             main_frame,
-            text="Game Settings",
+            text="Settings",
             font=('TkDefaultFont', 14, 'bold')
         ).pack(pady=(0, 20))
 
-        # Settings notebook
+        # Settings notebook (tabs for future expansion)
         notebook = ttk.Notebook(main_frame)
         notebook.pack(fill=tk.BOTH, expand=True)
-
-        # Game tab
-        game_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(game_frame, text="Game")
-
-        ttk.Label(game_frame, text="Starting Evolution Points:").grid(row=0, column=0, sticky='w', pady=5)
-        self.starting_ep_var = tk.StringVar(value="100")
-        ttk.Entry(game_frame, textvariable=self.starting_ep_var, width=10).grid(row=0, column=1, sticky='w', pady=5)
-
-        ttk.Label(game_frame, text="Starting Hand Size:").grid(row=1, column=0, sticky='w', pady=5)
-        self.hand_size_var = tk.StringVar(value="7")
-        ttk.Entry(game_frame, textvariable=self.hand_size_var, width=10).grid(row=1, column=1, sticky='w', pady=5)
-
-        ttk.Label(game_frame, text="Max Play Rounds:").grid(row=2, column=0, sticky='w', pady=5)
-        self.max_rounds_var = tk.StringVar(value="10")
-        ttk.Entry(game_frame, textvariable=self.max_rounds_var, width=10).grid(row=2, column=1, sticky='w', pady=5)
-
-        ttk.Label(game_frame, text="Win Threshold (Virions):").grid(row=3, column=0, sticky='w', pady=5)
-        self.win_threshold_var = tk.StringVar(value="10000")
-        ttk.Entry(game_frame, textvariable=self.win_threshold_var, width=10).grid(row=3, column=1, sticky='w', pady=5)
 
         # Display tab
         display_frame = ttk.Frame(notebook, padding=10)
         notebook.add(display_frame, text="Display")
 
-        ttk.Label(display_frame, text="Simulation Speed:").grid(row=0, column=0, sticky='w', pady=5)
-        self.sim_speed_var = tk.StringVar(value="Normal")
-        ttk.Combobox(display_frame, textvariable=self.sim_speed_var,
-                     values=["Slow", "Normal", "Fast", "Maximum"], state='readonly', width=15).grid(
-            row=0, column=1, sticky='w', pady=5)
+        ttk.Label(display_frame, text="Window Mode:").grid(row=0, column=0, sticky='w', pady=5)
+        current_mode = self.settings["display"]["window_mode"]
+        self.window_mode_var = tk.StringVar(value=current_mode.capitalize())
+        ttk.Combobox(display_frame, textvariable=self.window_mode_var,
+                     values=["Maximized", "Windowed"], state='readonly', width=15).grid(
+            row=0, column=1, sticky='w', padx=(10, 0), pady=5)
+
+        # Game tab
+        game_frame = ttk.Frame(notebook, padding=10)
+        notebook.add(game_frame, text="Game")
+
+        ttk.Label(game_frame, text="Starting Hand Size:").grid(row=0, column=0, sticky='w', pady=5)
+        self.hand_size_var = tk.StringVar(value=str(self.settings["game"]["starting_hand_size"]))
+        ttk.Spinbox(game_frame, textvariable=self.hand_size_var, from_=1, to=20,
+                    width=8).grid(row=0, column=1, sticky='w', padx=(10, 0), pady=5)
 
         # Buttons
         btn_frame = ttk.Frame(main_frame)
@@ -418,9 +419,20 @@ class SettingsDialog(tk.Toplevel):
         ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=5)
 
     def _save(self):
-        """Save settings."""
-        # TODO: Actually save settings to a config file
-        messagebox.showinfo("Settings", "Settings saved successfully.")
+        """Save settings to settings.json."""
+        # Validate hand size
+        try:
+            hand_size = int(self.hand_size_var.get())
+            if hand_size < 1 or hand_size > 20:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Invalid Setting",
+                                 "Starting Hand Size must be a number between 1 and 20.")
+            return
+
+        self.settings["display"]["window_mode"] = self.window_mode_var.get().lower()
+        self.settings["game"]["starting_hand_size"] = hand_size
+        save_settings(self.settings)
         self.destroy()
 
 

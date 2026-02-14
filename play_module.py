@@ -75,7 +75,8 @@ class PlayModule(tk.Toplevel):
     WIN_THRESHOLD = 10000
 
     def __init__(self, parent, game_state: GameState,
-                 on_return: Optional[Callable] = None):
+                 on_return: Optional[Callable] = None,
+                 window_mode: str = "maximized"):
         super().__init__(parent)
 
         self.game_state = game_state
@@ -84,7 +85,8 @@ class PlayModule(tk.Toplevel):
         self.title("Viral Sandbox - Play Module")
         self.geometry("1400x900")
         self.minsize(1200, 700)
-        self.state('zoomed')
+        if window_mode == "maximized":
+            self.state('zoomed')
 
         # Build virus blueprint
         self.effects = self._build_effects_list()

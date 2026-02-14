@@ -23,7 +23,8 @@ class BuilderModule(tk.Toplevel):
 
     def __init__(self, parent, game_state: GameState,
                  on_play: Optional[Callable] = None,
-                 on_quit: Optional[Callable] = None):
+                 on_quit: Optional[Callable] = None,
+                 window_mode: str = "maximized"):
         super().__init__(parent)
 
         self.game_state = game_state
@@ -33,7 +34,8 @@ class BuilderModule(tk.Toplevel):
         self.title("Viral Sandbox - Builder Module")
         self.geometry("1400x900")
         self.minsize(1200, 700)
-        self.state('zoomed')
+        if window_mode == "maximized":
+            self.state('zoomed')
 
         # Track expanded genes in tree views
         self.available_expanded = set()
