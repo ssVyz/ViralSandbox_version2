@@ -108,6 +108,7 @@ class GameState:
     config_lock_cost: int = 10
     orf_cost: int = 20  # Cost for ORFs after the first one
     terminator_cost: int = 10  # Cost to install a terminator
+    terminator_chance: int = 100  # Percentage chance terminators apply (1-100)
     win_threshold: int = 10000
 
     # Game status
@@ -557,6 +558,55 @@ class GameState:
                 })
 
         return structure
+
+    def get_orf_ghost_structure(self) -> list[dict]:
+        """Get ORF structure ignoring all terminators (maximum possible extent).
+
+        Used by the builder visualization to show ghost extensions when
+        terminator_chance < 100. Returns the same format as get_orf_structure()
+        but ORFs extend to the end of the installed_genes list.
+        """
+        structure = []
+
+        orf_positions = []
+        for idx, item in enumerate(self.installed_genes):
+            if self.is_orf(item):
+                orf_positions.append((idx, item))
+
+        for orf_idx, orf_name in orf_positions:
+            genes = []
+            for idx in range(orf_idx + 1, len(self.installed_genes)):
+                item = self.installed_genes[idx]
+                if not self.is_orf(item) and not self.is_terminator(item):
+                    genes.append(item)
+
+            if genes:
+                structure.append({
+                    'orf': orf_name,
+                    'genes': genes,
+                    'start_idx': orf_idx,
+                    'end_idx': len(self.installed_genes)
+                })
+
+        return structure
+
+    def resolve_orf_translation(self, orf_start_idx: int) -> list[int]:
+        """Resolve which genes an ORF translates, rolling for each terminator.
+
+        Walks forward from the ORF position, collecting genes. When a terminator
+        is encountered, rolls against terminator_chance to decide if it stops.
+        Returns the list of gene IDs that are translated.
+        """
+        genes = []
+        for idx in range(orf_start_idx + 1, len(self.installed_genes)):
+            item = self.installed_genes[idx]
+            if self.is_terminator(item):
+                if random.randint(1, 100) <= self.terminator_chance:
+                    break  # Terminator applies
+                # else: readthrough - continue past it
+            elif not self.is_orf(item):
+                genes.append(item)
+        return genes
 
     def get_installed_orf_count(self) -> int:
         """Get the number of ORFs currently installed."""

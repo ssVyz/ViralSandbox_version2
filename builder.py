@@ -185,6 +185,19 @@ class BuilderModule(tk.Toplevel):
         ttk.Radiobutton(virion_frame, text="Unenveloped", variable=self.virion_type_var,
                        value="Unenveloped", command=self._on_config_change).pack(side=tk.LEFT)
 
+        # Terminator chance
+        row += 1
+        ttk.Label(options_frame, text="Terminator Chance:").grid(row=row, column=0, sticky='w', pady=2)
+        term_chance_frame = ttk.Frame(options_frame)
+        term_chance_frame.grid(row=row, column=1, sticky='w', pady=2)
+        self.terminator_chance_var = tk.StringVar(value=str(self.game_state.terminator_chance))
+        self.terminator_chance_spin = ttk.Spinbox(
+            term_chance_frame, textvariable=self.terminator_chance_var,
+            from_=1, to=100, width=5, command=self._on_terminator_chance_change)
+        self.terminator_chance_spin.pack(side=tk.LEFT)
+        self.terminator_chance_spin.bind('<Return>', lambda e: self._on_terminator_chance_change())
+        ttk.Label(term_chance_frame, text="%").pack(side=tk.LEFT, padx=(2, 0))
+
         # Lock config button
         row += 1
         self.lock_btn_frame = ttk.Frame(options_frame)
@@ -365,6 +378,17 @@ class BuilderModule(tk.Toplevel):
         state = 'normal' if self.strandedness_var.get() == 'single' else 'disabled'
         for child in self.polarity_frame.winfo_children():
             child.configure(state=state)
+
+    def _on_terminator_chance_change(self):
+        """Handle terminator chance change."""
+        try:
+            value = int(self.terminator_chance_var.get())
+            value = max(1, min(100, value))
+        except ValueError:
+            value = 100
+        self.terminator_chance_var.set(str(value))
+        self.game_state.terminator_chance = value
+        self._update_genome_visual()
 
     def _on_config_change(self):
         """Handle configuration change."""
@@ -619,6 +643,64 @@ class BuilderModule(tk.Toplevel):
                     text=orf_name,
                     font=('TkDefaultFont', 8, 'bold'),
                     fill=orf_color
+                )
+
+        # Draw ghost ORF extensions when terminator_chance < 100
+        if self.game_state.terminator_chance < 100 and terminator_positions:
+            ghost_structure = self.game_state.get_orf_ghost_structure()
+            # Build a lookup from orf_name to normal structure for comparison
+            normal_genes_by_orf = {s['orf']: set(s['genes']) for s in orf_structure}
+
+            for orf_idx, ghost_info in enumerate(ghost_structure):
+                ghost_name = ghost_info['orf']
+                ghost_genes = ghost_info['genes']
+                normal_genes = normal_genes_by_orf.get(ghost_name, set())
+
+                # Find genes that are only in the ghost (beyond terminator)
+                extra_genes = [g for g in ghost_genes if g not in normal_genes]
+                if not extra_genes:
+                    continue
+
+                # Find x range of the ghost extension
+                ghost_x_start = None
+                ghost_x_end = None
+                for gene_id in extra_genes:
+                    if gene_id in gene_positions:
+                        x_start, x_end, _ = gene_positions[gene_id]
+                        if ghost_x_start is None or x_start < ghost_x_start:
+                            ghost_x_start = x_start
+                        if ghost_x_end is None or x_end > ghost_x_end:
+                            ghost_x_end = x_end
+
+                if ghost_x_start is None or ghost_x_end is None:
+                    continue
+
+                # Find where the solid bracket ended (at the terminator)
+                # Use the normal ORF's last gene end position
+                solid_x_end = None
+                for gene_id in (normal_genes if normal_genes else []):
+                    if gene_id in gene_positions:
+                        _, x_end, _ = gene_positions[gene_id]
+                        if solid_x_end is None or x_end > solid_x_end:
+                            solid_x_end = x_end
+
+                # Ghost starts from the solid end (or from the ghost start if no solid genes)
+                ghost_line_start = solid_x_end if solid_x_end else ghost_x_start
+
+                orf_color = orf_colors[orf_idx % len(orf_colors)]
+                orf_y = 12 + (orf_idx % 2) * 12
+
+                # Draw dashed ghost bracket
+                self.genome_canvas.create_line(
+                    ghost_line_start, orf_y,
+                    ghost_x_end, orf_y,
+                    fill=orf_color, width=1, dash=(4, 4)
+                )
+                # Ghost end cap
+                self.genome_canvas.create_line(
+                    ghost_x_end, orf_y - 3,
+                    ghost_x_end, orf_y + 3,
+                    fill=orf_color, width=1, dash=(2, 2)
                 )
 
         # Draw Terminator indicators (vertical red lines)

@@ -785,8 +785,13 @@ class PlayModule(tk.Toplevel):
 
     def _translate_orf(self, orf_info: dict):
         """Translate an ORF, producing appropriate protein or polyprotein."""
-        genes = orf_info['genes']
         orf_name = orf_info['orf']
+
+        # Dynamically resolve genes with terminator readthrough rolls
+        if self.game_state.terminator_chance < 100:
+            genes = self.game_state.resolve_orf_translation(orf_info['start_idx'])
+        else:
+            genes = orf_info['genes']
 
         # Get protein types from genes in this ORF
         protein_entity_ids = []
