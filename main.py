@@ -19,8 +19,8 @@ class MainMenu(tk.Tk):
         super().__init__()
 
         self.title("Viral Sandbox")
-        self.geometry("600x500")
-        self.minsize(500, 400)
+        self.geometry("600x600")
+        self.minsize(500, 550)
 
         # Center the window on screen
         self.update_idletasks()

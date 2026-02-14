@@ -1,6 +1,6 @@
 {
     "display": {
-        "window_mode": "maximized"
+        "window_mode": "windowed"
     },
     "game": {
         "starting_hand_size": 7
