@@ -10,6 +10,7 @@ from game_state import GameState
 from builder import BuilderModule, GENE_COLOR_CATEGORY_COLORS, DEFAULT_GENE_COLOR
 from play_module import PlayModule
 from settings import load_settings, save_settings
+import os
 
 
 class MainMenu(tk.Tk):
@@ -153,14 +154,22 @@ class MainMenu(tk.Tk):
 
     def _new_game(self):
         """Start a new game."""
-        # Open file dialog to select database
-        filepath = filedialog.askopenfilename(
-            title="Select Game Database",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-        )
+        # Try default database first
+        default_db = self.settings["game"]["default_database"]
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        default_path = os.path.join(root_dir, default_db)
 
-        if not filepath:
-            return
+        if os.path.isfile(default_path):
+            filepath = default_path
+        else:
+            # Default database not found, ask user to select one
+            filepath = filedialog.askopenfilename(
+                title="Select Game Database",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+            )
+
+            if not filepath:
+                return
 
         # Load the database
         database = GameDatabase()
@@ -411,6 +420,11 @@ class SettingsDialog(tk.Toplevel):
         ttk.Spinbox(game_frame, textvariable=self.hand_size_var, from_=1, to=20,
                     width=8).grid(row=0, column=1, sticky='w', padx=(10, 0), pady=5)
 
+        ttk.Label(game_frame, text="Use database:").grid(row=1, column=0, sticky='w', pady=5)
+        self.default_db_var = tk.StringVar(value=self.settings["game"]["default_database"])
+        ttk.Entry(game_frame, textvariable=self.default_db_var,
+                  width=25).grid(row=1, column=1, sticky='w', padx=(10, 0), pady=5)
+
         # Buttons
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=tk.X, pady=(20, 0))
@@ -432,6 +446,7 @@ class SettingsDialog(tk.Toplevel):
 
         self.settings["display"]["window_mode"] = self.window_mode_var.get().lower()
         self.settings["game"]["starting_hand_size"] = hand_size
+        self.settings["game"]["default_database"] = self.default_db_var.get().strip()
         save_settings(self.settings)
         self.destroy()
 

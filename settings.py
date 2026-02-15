@@ -15,7 +15,8 @@ def get_default_settings() -> dict:
             "window_mode": "maximized"
         },
         "game": {
-            "starting_hand_size": 7
+            "starting_hand_size": 7,
+            "default_database": "default_database.json"
         }
     }
 

@@ -1,6 +1,6 @@
 {
-  "db_version": 88,
-  "last_modified": "2026-02-15T14:43:50",
+  "db_version": 90,
+  "last_modified": "2026-02-15T15:05:06",
   "entities": [
     {
       "id": 1,
@@ -1494,7 +1494,13 @@
           "consumed": true
         }
       ],
-      "outputs": [],
+      "outputs": [
+        {
+          "entity_id": 21,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
       "chance": 75.0,
       "interferon_production": 0.0,
       "antibody_response": 0.0,
@@ -1975,7 +1981,11 @@
       "gene_type_entity_id": 13,
       "effect_ids": [
         35,
-        18
+        18,
+        39,
+        42,
+        43,
+        44
       ],
       "description": "Alphavirus surface proteins. Mediates attachment and entry.",
       "is_utr": false,
