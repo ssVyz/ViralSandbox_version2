@@ -1,6 +1,6 @@
 {
-  "db_version": 75,
-  "last_modified": "2026-02-12T17:35:53",
+  "db_version": 88,
+  "last_modified": "2026-02-15T14:43:50",
   "entities": [
     {
       "id": 1,
@@ -228,6 +228,11 @@
           "amount": 1,
           "location": "Cytosol",
           "is_unpack_genome": true
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Cytosol"
         }
       ],
       "chance": 50.0,
@@ -277,7 +282,7 @@
         }
       ],
       "chance": 30.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.8,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -323,7 +328,7 @@
         }
       ],
       "chance": 30.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.8,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -357,6 +362,12 @@
         {
           "entity_id": 12,
           "amount": 20,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
           "location": "Cytosol",
           "consumed": true
         }
@@ -508,7 +519,7 @@
           "location": "Cytosol"
         }
       ],
-      "translation_chance": 66.0,
+      "translation_chance": 80.0,
       "orf_targeting": "ORF-1 only",
       "self_cleavage_chance": 0.0
     },
@@ -528,7 +539,7 @@
       "target_effect_id": null,
       "target_category": "picornardrp",
       "chance_modifier": 100.0,
-      "interferon_modifier": 10.0,
+      "interferon_modifier": 5.0,
       "antibody_modifier": 100.0,
       "source_location": "",
       "target_location": "",
@@ -554,7 +565,7 @@
       "requires_genome_type": "",
       "target_effect_id": 5,
       "target_category": "",
-      "chance_modifier": 20.0,
+      "chance_modifier": 5.0,
       "interferon_modifier": 100.0,
       "antibody_modifier": 100.0,
       "source_location": "",
@@ -588,7 +599,7 @@
           "location": "Membrane"
         }
       ],
-      "chance": 15.0,
+      "chance": 12.0,
       "interferon_production": 0.0,
       "antibody_response": 0.0,
       "requires_genome_type": "",
@@ -1087,7 +1098,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.4,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -1139,7 +1150,7 @@
         }
       ],
       "chance": 30.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.8,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -1191,7 +1202,7 @@
         }
       ],
       "chance": 30.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.8,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -1243,7 +1254,7 @@
         }
       ],
       "chance": 50.0,
-      "interferon_production": 1.0,
+      "interferon_production": 0.4,
       "antibody_response": 0.0,
       "requires_genome_type": "",
       "target_effect_id": null,
@@ -1282,7 +1293,7 @@
           "location": "Membrane"
         }
       ],
-      "chance": 15.0,
+      "chance": 12.0,
       "interferon_production": 0.0,
       "antibody_response": 0.0,
       "requires_genome_type": "",
@@ -1491,6 +1502,133 @@
       "target_effect_id": null,
       "target_category": "",
       "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 42,
+      "name": "Transport of surface glycoproteins to ER",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "Surface proteins are translated directly into the ER. Abstracted by moving them after production.",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "Cytosol",
+      "target_location": "ER",
+      "affected_entity_id": 13,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 43,
+      "name": "Transport of surface proteins to membrane",
+      "effect_type": "Change location",
+      "category": "",
+      "description": "Surface proteins are transported to the membrane.",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "ER",
+      "target_location": "Membrane",
+      "affected_entity_id": 13,
+      "location_change_chance": 30.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 44,
+      "name": "Budding of new virions",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Virion precursors are budding off from the plasma membrane, taking surface protein with them.",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 21,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 13,
+          "amount": 10,
+          "location": "Membrane",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 1,
+          "amount": 1,
+          "location": "Extracellular"
+        }
+      ],
+      "chance": 50.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 45,
+      "name": "Enhance translation of sub-genomic RNA",
+      "effect_type": "Modify effect",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": 30,
+      "target_category": "",
+      "chance_modifier": 200.0,
       "interferon_modifier": 100.0,
       "antibody_modifier": 100.0,
       "source_location": "",
@@ -1817,9 +1955,10 @@
       "gene_type_entity_id": 12,
       "effect_ids": [
         40,
-        41
+        41,
+        12
       ],
-      "description": "Alphavirus Capsid. A single protein builds the icosahedral shape.",
+      "description": "Alphavirus Capsid. A single protein builds the icosahedral shape. Has protease activity",
       "is_utr": false,
       "is_polymerase": false,
       "abbreviation": "CP",
@@ -1885,7 +2024,9 @@
       "install_cost": 25,
       "length": 300,
       "gene_type_entity_id": null,
-      "effect_ids": [],
+      "effect_ids": [
+        45
+      ],
       "description": "Allows translation despite host response. Ingame: greatly increases translation of subgenomic RNA",
       "is_utr": false,
       "is_polymerase": false,
@@ -1992,8 +2133,8 @@
     },
     "Protein": {
       "Extracellular": 50.0,
-      "Membrane": 50.0,
-      "Endosome": 20.0,
+      "Membrane": 15.0,
+      "Endosome": 25.0,
       "ER": 15.0,
       "Cytosol": 15.0,
       "Nucleus": 15.0
