@@ -1,6 +1,6 @@
 {
-  "db_version": 90,
-  "last_modified": "2026-02-15T15:05:06",
+  "db_version": 101,
+  "last_modified": "2026-02-15T16:56:41",
   "entities": [
     {
       "id": 1,
@@ -1645,6 +1645,411 @@
       "translation_chance": 100.0,
       "orf_targeting": "Random ORF",
       "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 46,
+      "name": "Membrane fusion",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Direct fusion at plasma membrane",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 8,
+          "amount": 1,
+          "location": "Membrane",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 17,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 50.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 47,
+      "name": "Uncoating of mononegavirales",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Unpacks negative sense genome, RdRp and P protein",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 17,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 0,
+          "amount": 1,
+          "location": "Cytosol",
+          "is_unpack_genome": true
+        },
+        {
+          "entity_id": 11,
+          "amount": 1,
+          "location": "Cytosol"
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 60.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 48,
+      "name": "Packing of mononegavirales genome complex",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "Packing of negative sense genome, RdRp and co-factor for new virions",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 4,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 11,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 12,
+          "amount": 40,
+          "location": "Cytosol",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 21,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 75.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 49,
+      "name": "RdRp activity (mononeg-like) - positive-strand",
+      "effect_type": "Transition",
+      "category": "mononegrdrp",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 3,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        },
+        {
+          "entity_id": 11,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 4,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 30.0,
+      "interferon_production": 0.8,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 50,
+      "name": "RdRp activity (mononeg-like) - negative-strand",
+      "effect_type": "Transition",
+      "category": "mononegrdrp",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 4,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        },
+        {
+          "entity_id": 11,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 3,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 20.0,
+      "interferon_production": 0.8,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 51,
+      "name": "RdRp mRNA production (mononeg-like)",
+      "effect_type": "Transition",
+      "category": "mononegrdrp",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 4,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        },
+        {
+          "entity_id": 11,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        },
+        {
+          "entity_id": 18,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": false
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 19,
+          "amount": 1,
+          "location": "Cytosol"
+        }
+      ],
+      "chance": 60.0,
+      "interferon_production": 0.4,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 52,
+      "name": "H and F mediated budding of virions",
+      "effect_type": "Transition",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [
+        {
+          "entity_id": 21,
+          "amount": 1,
+          "location": "Cytosol",
+          "consumed": true
+        },
+        {
+          "entity_id": 13,
+          "amount": 10,
+          "location": "Membrane",
+          "consumed": true
+        }
+      ],
+      "outputs": [
+        {
+          "entity_id": 1,
+          "amount": 1,
+          "location": "Extracellular"
+        }
+      ],
+      "chance": 5.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "",
+      "chance_modifier": 100.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 53,
+      "name": "M protein mediated budding",
+      "effect_type": "Modify effect",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": 52,
+      "target_category": "",
+      "chance_modifier": 1200.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
+    },
+    {
+      "id": 54,
+      "name": "Enhanced mononegavirales RdRp through P protein",
+      "effect_type": "Modify effect",
+      "category": "",
+      "description": "",
+      "is_global": false,
+      "inputs": [],
+      "outputs": [],
+      "chance": 100.0,
+      "interferon_production": 0.0,
+      "antibody_response": 0.0,
+      "requires_genome_type": "",
+      "target_effect_id": null,
+      "target_category": "mononegrdrp",
+      "chance_modifier": 150.0,
+      "interferon_modifier": 100.0,
+      "antibody_modifier": 100.0,
+      "source_location": "",
+      "target_location": "",
+      "affected_entity_id": null,
+      "location_change_chance": 100.0,
+      "templates": [],
+      "translation_chance": 100.0,
+      "orf_targeting": "Random ORF",
+      "self_cleavage_chance": 0.0
     }
   ],
   "genes": [
@@ -2044,6 +2449,119 @@
       "required_genome_type": "",
       "color_category": "Regulatory",
       "domain_entity_id": 12
+    },
+    {
+      "id": 28,
+      "name": "Nucleocapsid (N)",
+      "set_name": "MeV",
+      "install_cost": 30,
+      "length": 1578,
+      "gene_type_entity_id": 12,
+      "effect_ids": [
+        47,
+        48
+      ],
+      "description": "Helical nucleocapsid",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "N",
+      "required_genome_type": "(-)ssRNA",
+      "color_category": "Capsid",
+      "domain_entity_id": null
+    },
+    {
+      "id": 29,
+      "name": "Phosphoprotein (P)",
+      "set_name": "MeV",
+      "install_cost": 10,
+      "length": 1524,
+      "gene_type_entity_id": 18,
+      "effect_ids": [
+        54
+      ],
+      "description": "Essential for Function of Paramyxo L-type RdRps",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "P",
+      "required_genome_type": "",
+      "color_category": "Replication",
+      "domain_entity_id": null
+    },
+    {
+      "id": 30,
+      "name": "Matrix (M)",
+      "set_name": "MeV",
+      "install_cost": 35,
+      "length": 1008,
+      "gene_type_entity_id": null,
+      "effect_ids": [
+        53
+      ],
+      "description": "Required for efficient budding, interacts with F and H proteins",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "M",
+      "required_genome_type": "",
+      "color_category": "",
+      "domain_entity_id": null
+    },
+    {
+      "id": 31,
+      "name": "Fusion (F)",
+      "set_name": "MeV",
+      "install_cost": 25,
+      "length": 1653,
+      "gene_type_entity_id": 13,
+      "effect_ids": [
+        46,
+        42
+      ],
+      "description": "Mediates Fusion at the plasma membrane",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "F",
+      "required_genome_type": "",
+      "color_category": "Surface",
+      "domain_entity_id": null
+    },
+    {
+      "id": 32,
+      "name": "Hemagglutinin (H)",
+      "set_name": "MeV",
+      "install_cost": 15,
+      "length": 1854,
+      "gene_type_entity_id": 13,
+      "effect_ids": [
+        35,
+        42
+      ],
+      "description": "Mediates binding to plasma membrane",
+      "is_utr": false,
+      "is_polymerase": false,
+      "abbreviation": "H",
+      "required_genome_type": "",
+      "color_category": "Surface",
+      "domain_entity_id": null
+    },
+    {
+      "id": 33,
+      "name": "Large protein (L)",
+      "set_name": "MeV",
+      "install_cost": 50,
+      "length": 6552,
+      "gene_type_entity_id": 11,
+      "effect_ids": [
+        49,
+        50,
+        51
+      ],
+      "description": "L protein, measles variant of the mononegavirales RdRp. Can not work without co-factor.",
+      "is_utr": false,
+      "is_polymerase": true,
+      "abbreviation": "L",
+      "required_genome_type": "",
+      "color_category": "Replication",
+      "domain_entity_id": null
     }
   ],
   "milestones": [
