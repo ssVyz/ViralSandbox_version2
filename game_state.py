@@ -930,8 +930,11 @@ class GameState:
                 valid_effect_ids.add(eid)
 
         # Second pass: filter Modify effects based on valid effects
+        # Include global effect IDs so gene-based Modify effects can target global effects
+        global_effect_ids = {e.id for e in self.database.get_global_effects()}
+        all_targetable_ids = valid_effect_ids | global_effect_ids
         for effect in pending_modify_effects:
-            if self._can_modify_happen(effect, valid_effect_ids):
+            if self._can_modify_happen(effect, all_targetable_ids):
                 valid_effect_ids.add(effect.id)
 
         # Build final list
@@ -977,8 +980,10 @@ class GameState:
                 if self._can_translation_happen(effect):
                     valid_gene_effect_ids.add(eid)
 
-        # Filter global effects
+        # Filter global effects: two passes to handle Modify effects that may
+        # target other global effects regardless of iteration order
         filtered = []
+        pending_modify = []
         for effect in global_effects:
             if effect.effect_type == EffectType.TRANSITION.value:
                 if self._can_transition_happen(effect):
@@ -993,12 +998,16 @@ class GameState:
                     filtered.append(effect)
 
             elif effect.effect_type == EffectType.MODIFY_EFFECT.value:
-                # Combine valid gene effects with already filtered global effects
-                all_valid_ids = valid_gene_effect_ids | {e.id for e in filtered}
-                if self._can_modify_happen(effect, all_valid_ids):
-                    filtered.append(effect)
+                # Defer to second pass so all global targets are known
+                pending_modify.append(effect)
 
             else:
+                filtered.append(effect)
+
+        # Second pass: check Modify effects against all valid targets
+        all_valid_ids = valid_gene_effect_ids | {e.id for e in filtered}
+        for effect in pending_modify:
+            if self._can_modify_happen(effect, all_valid_ids):
                 filtered.append(effect)
 
         return filtered

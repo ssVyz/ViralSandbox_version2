@@ -1,6 +1,6 @@
 {
-  "db_version": 106,
-  "last_modified": "2026-02-15T17:54:18",
+  "db_version": 111,
+  "last_modified": "2026-02-15T18:36:29",
   "entities": [
     {
       "id": 1,
@@ -2542,7 +2542,8 @@
       "effect_ids": [
         46,
         42,
-        52
+        52,
+        43
       ],
       "description": "Mediates Fusion at the plasma membrane",
       "is_utr": false,
@@ -2562,7 +2563,8 @@
       "effect_ids": [
         35,
         42,
-        52
+        52,
+        43
       ],
       "description": "Mediates binding to plasma membrane",
       "is_utr": false,
@@ -2596,11 +2598,23 @@
   ],
   "milestones": [
     {
-      "id": 1,
-      "name": "First Contact",
+      "id": 6,
+      "name": "Play the game!",
+      "milestone_type": "Survive turns",
+      "reward_ep": 20,
+      "description": "You played the game! (yay!)",
+      "target_compartment": "",
+      "target_entity_category": "",
+      "target_count": 0,
+      "target_turns": 1,
+      "prerequisite_id": null
+    },
+    {
+      "id": 7,
+      "name": "Bind to the membrane",
       "milestone_type": "Enter compartment",
-      "reward_ep": 50,
-      "description": "Successfully bind to the cell membrane",
+      "reward_ep": 20,
+      "description": "Achieve binding to the plasma membrane",
       "target_compartment": "Membrane",
       "target_entity_category": "",
       "target_count": 0,
@@ -2608,11 +2622,23 @@
       "prerequisite_id": null
     },
     {
-      "id": 2,
-      "name": "Infiltrator",
+      "id": 8,
+      "name": "Enter the endosome",
       "milestone_type": "Enter compartment",
-      "reward_ep": 15,
-      "description": "Enter the cytosol for the first time",
+      "reward_ep": 10,
+      "description": "Achieve endocytosis",
+      "target_compartment": "Endosome",
+      "target_entity_category": "",
+      "target_count": 0,
+      "target_turns": 0,
+      "prerequisite_id": null
+    },
+    {
+      "id": 9,
+      "name": "Enter the cytosol",
+      "milestone_type": "Enter compartment",
+      "reward_ep": 20,
+      "description": "Enter the cytosol",
       "target_compartment": "Cytosol",
       "target_entity_category": "",
       "target_count": 0,
@@ -2620,40 +2646,52 @@
       "prerequisite_id": null
     },
     {
-      "id": 3,
-      "name": "First Replication",
+      "id": 10,
+      "name": "First RNA",
       "milestone_type": "Produce first entity",
       "reward_ep": 20,
-      "description": "Produce the first new virion",
+      "description": "Generate your first RNA. Usually by unpacking from virions.",
       "target_compartment": "",
-      "target_entity_category": "Virion",
+      "target_entity_category": "RNA",
       "target_count": 0,
       "target_turns": 0,
-      "prerequisite_id": null
+      "prerequisite_id": 9
     },
     {
-      "id": 4,
-      "name": "Viral Burst",
-      "milestone_type": "Produce entity count",
-      "reward_ep": 50,
-      "description": "Reach 100 virions simultaneously",
+      "id": 11,
+      "name": "First DNA",
+      "milestone_type": "Produce first entity",
+      "reward_ep": 20,
+      "description": "Generate your first DNA. Not all viruses do this.",
       "target_compartment": "",
-      "target_entity_category": "Virion",
-      "target_count": 100,
+      "target_entity_category": "DNA",
+      "target_count": 0,
       "target_turns": 0,
-      "prerequisite_id": null
+      "prerequisite_id": 9
     },
     {
-      "id": 5,
-      "name": "Survivor",
+      "id": 12,
+      "name": "First protein",
+      "milestone_type": "Produce first entity",
+      "reward_ep": 20,
+      "description": "Make your first protein. (Or unpack some from your virions)",
+      "target_compartment": "",
+      "target_entity_category": "Protein",
+      "target_count": 0,
+      "target_turns": 0,
+      "prerequisite_id": 9
+    },
+    {
+      "id": 13,
+      "name": "Survive 500 turns",
       "milestone_type": "Survive turns",
       "reward_ep": 50,
-      "description": "Survive for 50 turns",
+      "description": "You are not easy to get rid off...",
       "target_compartment": "",
       "target_entity_category": "",
       "target_count": 0,
-      "target_turns": 50,
-      "prerequisite_id": null
+      "target_turns": 500,
+      "prerequisite_id": 6
     }
   ],
   "degradation_chances": {
@@ -2670,15 +2708,15 @@
       "Membrane": 50.0,
       "Endosome": 10.0,
       "ER": 10.0,
-      "Cytosol": 10.0,
+      "Cytosol": 5.0,
       "Nucleus": 5.0
     },
     "DNA": {
-      "Extracellular": 10.0,
-      "Membrane": 10.0,
-      "Endosome": 10.0,
-      "ER": 10.0,
-      "Cytosol": 10.0,
+      "Extracellular": 15.0,
+      "Membrane": 8.0,
+      "Endosome": 8.0,
+      "ER": 8.0,
+      "Cytosol": 8.0,
       "Nucleus": 8.0
     },
     "RNA": {
@@ -2691,17 +2729,17 @@
     },
     "Protein": {
       "Extracellular": 50.0,
-      "Membrane": 15.0,
+      "Membrane": 10.0,
       "Endosome": 25.0,
-      "ER": 15.0,
-      "Cytosol": 15.0,
-      "Nucleus": 15.0
+      "ER": 10.0,
+      "Cytosol": 10.0,
+      "Nucleus": 10.0
     }
   },
   "interferon_modifiers": {
-    "Virion": 25.0,
+    "Virion": 20.0,
     "Viral complex": 50.0,
-    "DNA": 25.0,
+    "DNA": 50.0,
     "RNA": 400.0,
     "Protein": 100.0
   },
