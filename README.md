@@ -39,5 +39,30 @@ A virus simulation game where players configure and evolve a virus to infect cel
 
 ## Requirements
 
-- Python 3.10+
-- Tkinter (included with standard Python installation)
+- [uv](https://docs.astral.sh/uv/) — manages the Python version and the virtual environment
+- Tkinter (bundled with the Python interpreter uv installs; no separate install needed)
+
+There are no third-party dependencies — the game runs entirely on the standard library.
+
+## Running
+
+```bash
+uv run main.py
+```
+
+That is the whole setup. On first run uv downloads the pinned Python
+(`.python-version`), creates `.venv/`, and launches the game. No manual
+`venv` activation and no `pip install` step.
+
+To create the environment without launching the game:
+
+```bash
+uv sync
+```
+
+### Notes
+
+- The game reads and writes `settings.json` and `default_database.json` next to
+  the source files, so it is configured as a run-in-place application
+  (`package = false` in `pyproject.toml`) rather than an installable library.
+- `uv.lock` is committed so the environment is reproducible.
