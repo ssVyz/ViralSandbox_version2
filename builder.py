@@ -314,6 +314,14 @@ class BuilderModule(tk.Toplevel):
         self.details_text.tag_configure("header", font=('TkDefaultFont', 10, 'bold'))
         self.details_text.tag_configure("value", font=('TkDefaultFont', 10))
 
+    def refresh(self):
+        """Redraw the builder to match the current game state.
+
+        Public entry point for callers outside this window (the main menu
+        refreshes the builder after a play round).
+        """
+        self._refresh_all()
+
     def _refresh_all(self):
         """Refresh all UI elements."""
         self._update_status()

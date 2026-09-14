@@ -5,8 +5,8 @@ An educational game/simulator for building virtual viruses.
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from database_editor import DatabaseEditor
-from database import GameDatabase
 from game_state import GameState
+from session import GameSession, StartResult, RoundOutcome
 from builder import BuilderModule, GENE_COLOR_CATEGORY_COLORS, DEFAULT_GENE_COLOR
 from play_module import PlayModule
 from settings import load_settings, save_settings
@@ -36,14 +36,26 @@ class MainMenu(tk.Tk):
         self.builder_module = None
         self.play_module = None
 
-        # Current game state
-        self.game_state = None
-        self.current_database = None
-
         # Load settings
         self.settings = load_settings()
 
+        # The session owns the playthrough: game state, round loop, gene offers.
+        self.session = GameSession(
+            starting_ep=100,
+            starting_hand_size=self.settings["game"]["starting_hand_size"],
+        )
+
         self._create_ui()
+
+    @property
+    def game_state(self):
+        """Current game state, owned by the session."""
+        return self.session.game_state
+
+    @property
+    def current_database(self):
+        """Database backing the current game, owned by the session."""
+        return self.session.database
 
     def _create_ui(self):
         """Create the main menu UI."""
@@ -171,14 +183,15 @@ class MainMenu(tk.Tk):
             if not filepath:
                 return
 
-        # Load the database
-        database = GameDatabase()
-        if not database.load(filepath):
+        # Hand off to the session, then present whatever it reports.
+        self.session.starting_hand_size = self.settings["game"]["starting_hand_size"]
+        result = self.session.start(filepath)
+
+        if result is StartResult.LOAD_FAILED:
             messagebox.showerror("Error", "Failed to load database file.")
             return
 
-        # Check if database has genes
-        if not database.genes:
+        if result is StartResult.NO_GENES:
             messagebox.showerror(
                 "Empty Database",
                 "The selected database has no genes.\n\n"
@@ -186,22 +199,11 @@ class MainMenu(tk.Tk):
             )
             return
 
-        # Create new game state
-        self.current_database = database
-        self.game_state = GameState.new_game(
-            database=database,
-            starting_ep=100,
-            starting_hand_size=self.settings["game"]["starting_hand_size"]
-        )
-
-        # Check if enough genes were drawn
-        if not self.game_state.available_genes:
+        if result is StartResult.NOT_ENOUGH_GENES:
             messagebox.showerror(
                 "Not Enough Genes",
                 "The database doesn't have enough genes to start a game."
             )
-            self.game_state = None
-            self.current_database = None
             return
 
         # Open the builder module
@@ -259,8 +261,9 @@ class MainMenu(tk.Tk):
 
         self.play_module = None
 
-        if victory:
-            # Player won the game!
+        outcome = self.session.finish_round(victory)
+
+        if outcome is RoundOutcome.VICTORY:
             messagebox.showinfo(
                 "Victory!",
                 "Congratulations! Your virus has achieved a runaway reaction!\n\n"
@@ -269,10 +272,7 @@ class MainMenu(tk.Tk):
             self._on_game_quit()
             return
 
-        # Check if max rounds reached
-        self.game_state.complete_play_round()
-
-        if self.game_state.game_over:
+        if outcome is RoundOutcome.OUT_OF_ROUNDS:
             messagebox.showinfo(
                 "Game Over",
                 f"You have completed all {self.game_state.max_rounds} play rounds.\n\n"
@@ -294,26 +294,18 @@ class MainMenu(tk.Tk):
 
         # Finalize builder display
         if self.builder_module:
-            self.builder_module._refresh_all()
+            self.builder_module.refresh()
             self.builder_module.lift()
             self.builder_module.focus_force()
 
     def _offer_new_genes(self):
         """Offer new genes to the player after a play round."""
-        # Get random genes not in hand or installed
-        all_gene_ids = list(self.game_state.database.genes.keys())
-        available_ids = [gid for gid in all_gene_ids
-                        if gid not in self.game_state.available_genes
-                        and gid not in self.game_state.installed_genes]
+        offered = self.session.draw_gene_offer()
 
-        if not available_ids:
+        if not offered:
             messagebox.showinfo("No More Genes",
                                "There are no more genes available to offer.")
             return
-
-        import random
-        offer_count = min(self.game_state.genes_offered_per_round, len(available_ids))
-        offered = random.sample(available_ids, offer_count)
 
         # Show selection dialog (use builder_module as parent if available, otherwise self)
         parent = self.builder_module if self.builder_module else self
@@ -321,12 +313,11 @@ class MainMenu(tk.Tk):
         parent.wait_window(dialog)
 
         if dialog.selected_gene:
-            self.game_state.available_genes.append(dialog.selected_gene)
+            self.session.accept_gene(dialog.selected_gene)
 
     def _on_game_quit(self):
         """Handle game quit callback."""
-        self.game_state = None
-        self.current_database = None
+        self.session.end()
         self.builder_module = None
         self.deiconify()  # Show main menu again
 

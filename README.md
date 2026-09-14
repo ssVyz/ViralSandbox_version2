@@ -13,10 +13,11 @@ A virus simulation game where players configure and evolve a virus to infect cel
 ├── database_editor.py   # Content editor for entities, effects, genes, milestones
 ├── game_state.py        # Genome/builder rules - no UI
 ├── simulation.py        # Simulation engine - no UI, runs headless
+├── session.py           # Playthrough flow: rounds, gene offers - no UI
 ├── builder.py           # Builder UI - virus configuration and gene management
 ├── play_module.py       # Play UI - observes and draws the simulation
 ├── simulate.py          # Headless CLI runner for balance testing
-├── tests/               # Headless tests for the simulation engine
+├── tests/               # Headless tests for the logic layer
 └── default_database.json # Default game content
 ```
 
@@ -33,9 +34,10 @@ without a display.
 ### Logic Layer (no UI)
 - **game_state.py**: Session state and the genome/builder rules - installing genes, ORFs, terminators, and resolving which effects are active
 - **simulation.py**: `SimulationEngine`, the turn-by-turn rules of the infection. Owns `SimulationState`. Reports progress through optional `on_*` callbacks so the UI can observe a run without the engine knowing anything about widgets
+- **session.py**: `GameSession`, the lifecycle of one playthrough - starting a game, advancing rounds, and choosing which genes to offer between them. Returns `StartResult` / `RoundOutcome` values for the caller to present, so it holds no dialog text
 
 ### UI Layer
-- **main.py**: Main menu with options to start new game, continue, or edit database
+- **main.py**: Main menu and window management. Owns a `GameSession` and presents whatever it reports; contains no round logic of its own
 - **database_editor.py**: Tabbed editor for creating and modifying game content (entities, effects, genes, milestones, global settings)
 - **builder.py**: Module where players configure their virus genome type, install genes, and manage ORFs
 - **play_module.py**: Play window. Drives `SimulationEngine` from a Tk timer and redraws in response to its callbacks; contains no simulation rules of its own
