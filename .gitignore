@@ -4,3 +4,6 @@ test_databases/
 .venv/
 __pycache__/
 nul
+
+*.md
+!README.md

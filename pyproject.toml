@@ -16,3 +16,13 @@ dependencies = []
 # relative to `__file__`, so the app must run from the source tree. Installing it
 # into site-packages would send those reads and writes into .venv instead.
 package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# Flat layout: the modules live at the repo root, so put it on sys.path.
+pythonpath = ["."]
+testpaths = ["tests"]

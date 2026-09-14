@@ -11,24 +11,34 @@ A virus simulation game where players configure and evolve a virus to infect cel
 ├── models.py            # Data models (Gene, Effect, Milestone, VirusConfig, etc.)
 ├── database.py          # Database operations, JSON persistence
 ├── database_editor.py   # Content editor for entities, effects, genes, milestones
-├── game_state.py        # Game session state and logic
-├── builder.py           # Builder module - virus configuration and gene management
-├── play_module.py       # Play module - simulation execution
+├── game_state.py        # Genome/builder rules - no UI
+├── simulation.py        # Simulation engine - no UI, runs headless
+├── builder.py           # Builder UI - virus configuration and gene management
+├── play_module.py       # Play UI - observes and draws the simulation
+├── simulate.py          # Headless CLI runner for balance testing
+├── tests/               # Headless tests for the simulation engine
 └── default_database.json # Default game content
 ```
 
 ## Architecture
 
+The codebase is split into a logic layer and a UI layer. **No module in the
+logic layer imports tkinter**, so the game's rules can be run and tested
+without a display.
+
 ### Data Layer
 - **models.py**: Defines dataclasses for game entities (ViralEntity, Effect, Gene, Milestone) and virus configuration
 - **database.py**: Handles loading/saving game content from JSON files
-- **game_state.py**: Manages session state including installed genes, evolution points, and virus configuration
+
+### Logic Layer (no UI)
+- **game_state.py**: Session state and the genome/builder rules - installing genes, ORFs, terminators, and resolving which effects are active
+- **simulation.py**: `SimulationEngine`, the turn-by-turn rules of the infection. Owns `SimulationState`. Reports progress through optional `on_*` callbacks so the UI can observe a run without the engine knowing anything about widgets
 
 ### UI Layer
 - **main.py**: Main menu with options to start new game, continue, or edit database
 - **database_editor.py**: Tabbed editor for creating and modifying game content (entities, effects, genes, milestones, global settings)
 - **builder.py**: Module where players configure their virus genome type, install genes, and manage ORFs
-- **play_module.py**: Simulation module that runs the virus infection, tracks entity populations, and checks milestone completion
+- **play_module.py**: Play window. Drives `SimulationEngine` from a Tk timer and redraws in response to its callbacks; contains no simulation rules of its own
 
 ### Game Flow
 1. Main menu launches the application
@@ -66,3 +76,30 @@ uv sync
   the source files, so it is configured as a run-in-place application
   (`package = false` in `pyproject.toml`) rather than an installable library.
 - `uv.lock` is committed so the environment is reproducible.
+
+## Testing
+
+The simulation engine runs headlessly, so the game's rules are testable without
+opening a window:
+
+```bash
+uv run pytest
+```
+
+To run simulations for balance testing:
+
+```bash
+uv run simulate.py --runs 20
+uv run simulate.py --seed 7 --verbose      # print the full turn log
+```
+
+`SimulationEngine` takes an optional `rng`, so a run can be made reproducible:
+
+```python
+from simulation import SimulationEngine
+import random
+
+engine = SimulationEngine(game_state, rng=random.Random(42))
+state = engine.run_until_end()
+print(state.turn, state.is_victory)
+```
