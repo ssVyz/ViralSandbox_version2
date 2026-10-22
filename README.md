@@ -7,7 +7,8 @@ An educational simulation game where players configure and evolve a virus to inf
 ## Project Structure
 
 ```
-├── main.py              # Application entry point and main menu (UI)
+├── main.py              # Launcher - picks a UI with --ui (default: tkinter)
+├── main_menu.py         # Tk UI entry point - main menu, settings and gene offer dialogs
 ├── builder.py           # Builder UI - virus configuration and gene management
 ├── play_module.py       # Play UI - paces a round and draws its snapshots
 ├── database_editor.py   # Content editor UI for entities, effects, genes, milestones
@@ -34,10 +35,11 @@ the UI can be replaced without touching game code. `ui_interface.md` documents
 that interface; `tests/test_game_api.py` enforces the import boundary.
 
 ### UI Layer
-- **main.py**: Main menu, settings and gene offer dialogs, window management. Holds a `GameAPI` and presents whatever it reports
+- **main.py**: Launcher. Creates the `GameAPI` and starts the UI chosen with `--ui`; each UI is a module with `run(api)`, registered in `UIS`. Never imports tkinter
+- **main_menu.py**: Entry point of the Tk UI: main menu, settings and gene offer dialogs, window management. Presents whatever the `GameAPI` reports
 - **builder.py**: Module where players configure their virus genome type, install genes, and manage ORFs, all through `game_api.Builder`
 - **play_module.py**: Play window. Calls `Round.step()` from a Tk timer and draws the snapshot it returns; pacing (speed, pause) is its only job besides drawing
-- **database_editor.py**: Tabbed editor for creating and modifying game content (entities, effects, genes, milestones, global settings), on a content database handed in by the API
+- **database_editor.py**: Tabbed editor for creating and modifying game content (entities, effects, genes, milestones, global settings), on a content database handed in by the API. Part of the Tk UI only; other UIs are gameplay only
 
 ### Application Layer
 - **game_api.py**: `GameAPI`, the entry point for a UI: settings, version, the game phases, rounds and gene offers. Hands out `Builder` (genome editing) and `Round` (a play round) plus immutable snapshots of everything a UI draws. Wrong-phase calls raise `GameFlowError`; player-facing problems come back as `(ok, message)` or result enums
@@ -75,6 +77,15 @@ uv run main.py
 That is the whole setup. On first run uv downloads the pinned Python
 (`.python-version`), creates `.venv/`, and launches the game. No manual
 `venv` activation and no `pip install` step.
+
+The UI is chosen with `--ui`; without it the Tk UI starts:
+
+```bash
+uv run main.py --ui tkinter    # same as no argument
+uv run main.py --help          # lists the available UIs
+```
+
+The database editor is only available in the Tk UI (main menu → Database Editor).
 
 To create the environment without launching the game:
 

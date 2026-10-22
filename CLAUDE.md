@@ -7,8 +7,10 @@ Viral Sandbox: educational virus-evolution game. Python 3.13 + Tkinter, stdlib o
 - Test: `uv run pytest`
 - Balance sim: `uv run simulate.py --runs 20`
 
-## Architecture constraint
-Logic modules (`models`, `database`, `settings`, `game_state`, `simulation`, `session`, `simulate`) must never import tkinter. UI lives only in `main`, `builder`, `play_module`, `database_editor`.
+## Architecture constraints
+- Logic modules (`models`, `database`, `settings`, `game_state`, `simulation`, `session`, `simulate`) and the application layer `game_api` should never import ui packages. Special cases would require human consent.
+- New UI touch points go into `game_api` and must be documented in `ui_interface.md`.
+- UI ↔ game API (phases, `GameAPI`/`Builder`/`Round`, snapshots, conventions): see `ui_interface.md`.
 
 ## Repo rules
 - Every code change: bump the patch version and add a CHANGELOG.md entry for it.

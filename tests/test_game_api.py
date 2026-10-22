@@ -18,7 +18,7 @@ from game_api import (GameAPI, GameFlowError, GamePhase, GenomeFit, ItemKind, Ro
                       RoundOutcome, RoundReadiness, StartResult, get_version)
 from simulation import SimulationEngine
 
-UI_MODULES = ["main.py", "builder.py", "play_module.py", "database_editor.py"]
+UI_MODULES = ["main.py", "main_menu.py", "builder.py", "play_module.py", "database_editor.py"]
 LOGIC_MODULES = {"game_state", "simulation", "session", "database", "settings"}
 
 

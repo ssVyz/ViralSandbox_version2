@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 Every code change bumps the patch version; minor and major bumps happen only on request.
 
+## [0.2.3] - 2026-10-22
+
+### Added
+- `--ui` command-line option to choose the user interface: `uv run main.py --ui tkinter`. Without it the Tk UI starts. UIs are registered in `UIS` in `main.py`; each is a module with `run(api)`.
+- `tests/test_launcher.py`: `--ui` parsing, every registered UI has `run(api)`, the launcher never loads tkinter, and no UI except tkinter loads the database editor.
+
+### Changed
+- `main.py` is now only the launcher (no tkinter import); the Tk main menu, settings and gene offer dialogs moved to `main_menu.py`.
+- `MainMenu` receives its `GameAPI` from the launcher instead of creating one.
+- `ui_interface.md`: how to add a UI; the database editor is Tk-only. `README.md` updated.
+
 ## [0.2.2] - 2026-10-22
 
 ### Added

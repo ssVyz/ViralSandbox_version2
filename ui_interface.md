@@ -1,8 +1,21 @@
 # UI Interface
 
 This is the contract between a user interface and the rest of Viral Sandbox. A UI
-built against it can replace the Tk UI (`main.py`, `builder.py`, `play_module.py`,
-`database_editor.py`) without touching game code.
+built against it can replace the Tk UI (`main_menu.py`, `builder.py`,
+`play_module.py`, `database_editor.py`) without touching game code.
+
+## Adding a UI
+
+1. Write a module with a `run(api: GameAPI) -> None` function that starts the UI
+   and returns when it closes. The launcher creates the `GameAPI` and passes it in.
+2. Register it in `UIS` in `main.py` (`"name": "module"`). It is then started with
+   `uv run main.py --ui name`. Without `--ui`, `DEFAULT_UI` (tkinter) starts.
+3. Add its modules to `UI_MODULES` in `tests/test_game_api.py` so the import
+   boundary below is enforced for it.
+
+**The database editor belongs to the Tk UI only.** Other UIs are gameplay only.
+They must not import `database_editor` (`tests/test_launcher.py` checks every
+registered UI) and must not call `GameAPI.create_content_database()`.
 
 ## The boundary
 
@@ -14,9 +27,9 @@ A UI module may import:
   `OrfTargeting`). These are shared vocabulary.
 
 A UI module must not import `game_state`, `simulation`, `session`, `database` or
-`settings`. `tests/test_game_api.py` enforces this for the four Tk modules. Add a
-new UI module to `UI_MODULES` there. `game_api` never imports a UI toolkit, so the
-whole game runs headless.
+`settings`. `tests/test_game_api.py` enforces this for the modules in its
+`UI_MODULES` list (the launcher and the Tk modules). `game_api` and the launcher
+never import a UI toolkit, so the whole game runs headless.
 
 ## Conventions
 
@@ -64,7 +77,7 @@ any phase ──end_game──▶ NO_GAME
 ## A UI's main loop
 
 ```python
-api = GameAPI()
+# inside run(api) - the launcher passes in a ready GameAPI
 path = api.default_database_path() or ask_user_for_a_file()
 if api.new_game(path) is not StartResult.OK: ...        # show why
 
@@ -121,7 +134,7 @@ make gene offers and simulations reproducible.
 | `settings: dict` | any | Copy of the settings (schema below) |
 | `save_settings(settings) -> (ok, message)` | any | Validates, then saves. Nothing is saved if invalid. Pass `None` for a value the UI couldn't parse; the message explains. |
 | `default_database_path() -> str \| None` | any | The settings' database file, or `None` if it doesn't exist (ask the user for one) |
-| `create_content_database() -> GameDatabase` | any | Empty content database for an editor (see [Content editing](#content-editing)) |
+| `create_content_database() -> GameDatabase` | any | Empty content database for the Tk UI's editor only (see [Content editing](#content-editing)) |
 
 Settings schema:
 
@@ -318,7 +331,8 @@ their proteins).
 
 ### Content editing
 
-The database editor works on a content file rather than a game.
+Tk UI only: other UIs don't offer content editing. The database editor
+(`database_editor.py`) works on a content file rather than a game.
 `api.create_content_database()` returns a `GameDatabase`. Unlike game objects,
 the editor owns this one and its model objects: it builds `ViralEntity`, `Effect`,
 `Gene` and `Milestone` instances and hands them to these methods.
