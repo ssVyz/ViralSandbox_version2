@@ -1,18 +1,20 @@
 [project]
 name = "viral-sandbox"
-version = "0.2.3"
+version = "0.2.4"
 description = "An educational simulation game where players configure and evolve a virus to infect cells."
 readme = "README.md"
 requires-python = ">=3.11"
 
-# No third-party dependencies: the game runs entirely on the standard library
-# (tkinter, json, dataclasses, pathlib, ...). Add runtime deps here if that changes.
-dependencies = []
+# The game logic and the Tk UI use only the standard library; DearPyGui is the
+# one third-party package, for the DearPyGui UI (--ui dearpygui).
+dependencies = [
+    "dearpygui>=2.3.1",
+]
 
 [tool.uv]
 # This is a run-in-place application, not an installable library.
 #
-# settings.py and main.py resolve `settings.json` / `default_database.json`
+# settings.py and game_api.py resolve `settings.json` / `default_database.json`
 # relative to `__file__`, so the app must run from the source tree. Installing it
 # into site-packages would send those reads and writes into .venv instead.
 package = false

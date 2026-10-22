@@ -2,7 +2,8 @@
 
 This is the contract between a user interface and the rest of Viral Sandbox. A UI
 built against it can replace the Tk UI (`main_menu.py`, `builder.py`,
-`play_module.py`, `database_editor.py`) without touching game code.
+`play_module.py`, `database_editor.py`) without touching game code. The
+DearPyGui UI (`dpg_ui/`) is built only on this contract.
 
 ## Adding a UI
 
@@ -11,7 +12,11 @@ built against it can replace the Tk UI (`main_menu.py`, `builder.py`,
 2. Register it in `UIS` in `main.py` (`"name": "module"`). It is then started with
    `uv run main.py --ui name`. Without `--ui`, `DEFAULT_UI` (tkinter) starts.
 3. Add its modules to `UI_MODULES` in `tests/test_game_api.py` so the import
-   boundary below is enforced for it.
+   boundary below is enforced for it (the files of `dpg_ui/` are picked up
+   automatically).
+
+A UI can be a package: `run` then lives in its `__init__.py` (see `dpg_ui`, which
+imports DearPyGui only inside `run`).
 
 **The database editor belongs to the Tk UI only.** Other UIs are gameplay only.
 They must not import `database_editor` (`tests/test_launcher.py` checks every
@@ -28,8 +33,8 @@ A UI module may import:
 
 A UI module must not import `game_state`, `simulation`, `session`, `database` or
 `settings`. `tests/test_game_api.py` enforces this for the modules in its
-`UI_MODULES` list (the launcher and the Tk modules). `game_api` and the launcher
-never import a UI toolkit, so the whole game runs headless.
+`UI_MODULES` list (the launcher, the Tk modules and `dpg_ui/`). `game_api` and the
+launcher never import a UI toolkit, so the whole game runs headless.
 
 ## Conventions
 
@@ -193,6 +198,7 @@ or if the builder belongs to a game that has ended.
 | `orf_spans()` | `list[OrfSpan]`: ORFs covering at least one gene, in genome order |
 | `config()` | `ConfigView`: pending options and lock state |
 | `blueprint()` | `Blueprint`: full report of the virus as it will play |
+| `pathway()` | `Pathway`: the virus's reaction network as it will play, for a life-cycle graph |
 | `terminator_chance` | `int`, % |
 | `terminator_cost` | `int`, EP |
 | `orf_cost()` | `int`, EP for the next ORF (first one free) |
@@ -212,10 +218,11 @@ or if the builder belongs to a game that has ended.
 | `lock_config()` | `(ok, message)` | Locks the pending config in for play. Costs `config().lock_cost`. |
 | `reset_config()` | – | Discards pending changes |
 | `set_terminator_chance(value)` | `int` | Clamped to range. Returns the value applied. |
-| `install_gene(gene_id)` | `(ok, message)` | UTR genes go to the 5' end. Genes with a mismatched genome type install but stay inactive. |
+| `install_gene(gene_id, position=None)` | `(ok, message)` | Appended, or moved to `position` like `move_item_to` (for drag and drop). UTR genes always go to the 5' end. Genes with a mismatched genome type install but stay inactive. |
 | `remove_item(key)` | `(ok, message)` | Gene goes back to the hand. ORF and terminator removal is free and not refunded. |
 | `add_orf()` / `add_terminator()` | `(ok, message)` | Appended after the last item |
 | `move_item_up(key)` / `move_item_down(key)` | `(moved, rename_map)` | `rename_map` maps old marker keys to new ones. Update any key you hold. |
+| `move_item_to(key, position)` | `(moved, rename_map)` | One-step move so the item ends up at index `position` (clamped). Nothing moves in front of a UTR. For drag and drop. |
 
 Typical install flow for a gene with a genome requirement (`genome_fit`):
 `UNLOCKED` → offer to `lock_config()` first, or install anyway (inactive until a
@@ -226,6 +233,12 @@ matching genome is locked). `MISMATCH` → warn, install only if confirmed.
 
 The UI paces the round. Call `step()` once per turn, at whatever speed it likes.
 Pausing means not calling it.
+
+The API is not thread-safe, but a UI may run `step()` on one worker thread to keep
+its window responsive during heavy turns (late turns can take hundreds of
+milliseconds). While a step runs, make no other API calls from any thread. Reading
+snapshots you already hold (`TurnResult`, `RoundSnapshot`, ...) is fine, since
+they are immutable. The DearPyGui UI does exactly this.
 
 | Member | Returns / meaning |
 |---|---|
@@ -299,6 +312,25 @@ terminator; empty at 100 % terminator chance).
 `terminator_count`, `orf_spans` (only those with `gene_ids`), `items`
 (`InstalledItem`s), `enabled_types` (protein type names, sorted), `gene_effects`
 and `global_effects` (the `Effect`s that will actually apply).
+
+**`Pathway`**: `states` (`PathwayState`s, the nodes) and `reactions`
+(`PathwayReaction`s). Built from the active effects of the locked configuration.
+
+| Type | Fields |
+|---|---|
+| `PathwayState` | `key` (unique; flows refer to it), `name`, `location`, `category` (`""` for "any entity"), `entity_id` (`None` for polyproteins and "any entity"), `is_start` (the starting virion) |
+| `PathwayFlow` | `state` (a `PathwayState.key`), `amount`, `consumed` (inputs only; `False` = needed but kept, e.g. templates) |
+| `PathwayReaction` | `name`, `kind` (`EffectType` value: Transition, Change location, Translation, Self-cleavage), `inputs`, `outputs` (`PathwayFlow`s), `base_chance`, `chance` (% per turn after Modify effects), `modified_by` (names), `is_global`, `effect_id` (`None` for polyprotein cleavage) |
+
+How effects become reactions: a Transition consumes its inputs and makes its
+outputs (genome unpacking makes the locked genome's entities). A Change location
+effect moves one entity between compartments, or "any entity" if it targets
+none. Translation keeps its templates and makes the protein of each ORF it can
+target. If an ORF has several typed genes it makes a polyprotein instead, and a
+cleavage reaction splits that up, with the summed chance of the ORF's
+Self-cleavage genes (0 % = never). With terminator read-through, the longer
+polyprotein appears as well. Modify effects are not reactions; they show up in
+`chance` and `modified_by`.
 
 **`GeneOffer`**: `genes` (`Gene`s), `completed_round`, `max_rounds`.
 

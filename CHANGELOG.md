@@ -3,6 +3,24 @@
 All notable changes to this project are documented here.
 Every code change bumps the patch version; minor and major bumps happen only on request.
 
+## [0.2.4] - 2026-10-22
+
+### Added
+- DearPyGui UI (`dpg_ui/` package, `uv run main.py --ui dearpygui`), gameplay only:
+  - Title screen with an animated viewport backdrop (draw nodes moved by transform matrices).
+  - Builder: sortable, searchable hand table; drag and drop between hand and genome (install at a position, reorder, drag back to remove); clickable genome map with ORF brackets, terminators and dashed read-through; configuration, details, tooltips; Life cycle tab (node-editor graph of the reaction network with minimap) and Blueprint tab.
+  - Play: round paced by the render loop (turns per second or turbo) on a worker thread, so heavy turns don't freeze the window; animated cell with particle swarms per compartment and a hover inspector; interactive plots (population on a log scale with the win threshold, interferon and antibodies on two axes); shaded compartments table; filterable log; milestone toasts; Space/→ keys.
+  - Round summary, gene offer, game over and settings dialogs.
+- `dearpygui` runtime dependency.
+- API: `Builder.move_item_to(key, position)`, `Builder.install_gene(gene_id, position=None)`, and `Builder.pathway()` with `Pathway`, `PathwayState`, `PathwayFlow`, `PathwayReaction` (documented in `ui_interface.md`).
+- `GameState.move_item_to()`, `GameState.get_starting_virion_id()`; `simulation.effect_modifiers()` and `modified_chance()` (shared by the engine and the pathway).
+- Tests: pathway, `move_item_to` and install position, DearPyGui cell geometry; launcher and boundary tests now cover the `dpg_ui` package.
+
+### Changed
+- The engine computes modifier chances through `effect_modifiers()` / `modified_chance()` and gets its starting virion from `GameState`; results are unchanged (seeded `simulate.py` runs are identical).
+- `ui_interface.md`: threading contract for stepping a round on a worker thread; UIs can be packages.
+- `README.md` and `CLAUDE.md` describe both UIs and the dependency.
+
 ## [0.2.3] - 2026-10-22
 
 ### Added

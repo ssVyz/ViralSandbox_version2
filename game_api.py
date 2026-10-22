@@ -27,7 +27,7 @@ tkinter.
 import copy
 import os
 import tomllib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -35,9 +35,10 @@ from typing import Optional
 import settings as app_settings
 from database import GameDatabase
 from game_state import GameState, GenomeFit, RoundReadiness, VirusConfig
-from models import CellLocation, EntityCategory, Effect, Gene, Milestone, ViralEntity
+from models import CellLocation, EntityCategory, Effect, EffectType, Gene, Milestone, ViralEntity
 from session import GameFlowError, GamePhase, GameSession, RoundOutcome, StartResult
-from simulation import INTERFERON_MAX, POPULATION_GROUPS, SimulationEngine
+from simulation import (INTERFERON_MAX, POPULATION_GROUPS, SimulationEngine,
+                        effect_modifiers, modified_chance)
 
 __all__ = [
     "GameAPI", "Builder", "Round", "get_version",
@@ -46,6 +47,7 @@ __all__ = [
     "ItemKind", "GameFlowError",
     # Snapshots
     "GameStatus", "ConfigView", "InstalledItem", "OrfSpan", "Blueprint",
+    "PathwayState", "PathwayFlow", "PathwayReaction", "Pathway",
     "GeneOffer", "PopulationEntry", "RoundSnapshot", "MilestoneStatus",
     "TurnResult", "RoundSummary",
     # Content editing
@@ -166,6 +168,46 @@ class Blueprint:
     enabled_types: tuple        # protein type names, sorted
     gene_effects: tuple         # Effect, active effects of installed genes
     global_effects: tuple       # Effect, active global effects
+
+
+@dataclass(frozen=True)
+class PathwayState:
+    """A node of the life-cycle graph: one entity (or polyprotein) in one location."""
+    key: str                    # unique; PathwayFlow.state refers to it
+    name: str
+    location: str               # CellLocation value
+    category: str               # EntityCategory value ("" for "any entity")
+    entity_id: Optional[int]    # None for polyproteins and "any entity"
+    is_start: bool = False      # every round starts with 10 of these
+
+
+@dataclass(frozen=True)
+class PathwayFlow:
+    """An input or output of a reaction."""
+    state: str                  # PathwayState.key
+    amount: int = 1
+    consumed: bool = True       # inputs only; False: needed but kept (templates, catalysts)
+
+
+@dataclass(frozen=True)
+class PathwayReaction:
+    """Something that turns or moves entities, with its per-turn chance."""
+    name: str
+    kind: str                   # EffectType value: Transition, Change location, Translation, Self-cleavage
+    inputs: tuple               # PathwayFlow
+    outputs: tuple              # PathwayFlow
+    base_chance: float          # %, as defined
+    chance: float               # %, after Modify effects (clamped 0-100)
+    modified_by: tuple          # names of the Modify effects changing it
+    is_global: bool             # a global effect, active for every virus
+    effect_id: Optional[int]    # None for polyprotein cleavage (built from Self-cleavage genes)
+
+
+@dataclass(frozen=True)
+class Pathway:
+    """The virus's reaction network as it will play."""
+    states: tuple               # PathwayState
+    reactions: tuple            # PathwayReaction
 
 
 @dataclass(frozen=True)
@@ -342,6 +384,17 @@ class Builder:
             global_effects=tuple(gs.get_global_effects()),
         )
 
+    def pathway(self) -> Pathway:
+        """The reaction network of the virus as it will play (locked config).
+
+        Built from the active effects: what each one consumes and produces, and
+        where. Translation outputs the proteins of the ORFs it can target;
+        multi-protein ORFs produce a polyprotein that a cleavage reaction (from
+        the ORF's Self-cleavage genes) splits up. Modify effects show up as
+        ``modified_by`` and in ``chance``, not as reactions of their own.
+        """
+        return _PathwayBuilder(self._gs, self.orf_spans()).build()
+
     @property
     def terminator_chance(self) -> int:
         return self._gs.terminator_chance
@@ -406,9 +459,14 @@ class Builder:
         self._require_building()
         return self._gs.set_terminator_chance(value)
 
-    def install_gene(self, gene_id: int) -> tuple[bool, str]:
+    def install_gene(self, gene_id: int, position: Optional[int] = None) -> tuple[bool, str]:
+        """Install a gene from the hand: appended, or moved to ``position``
+        (as move_item_to). UTR genes always go to the 5' end."""
         self._require_building()
-        return self._gs.install_gene(gene_id)
+        success, message = self._gs.install_gene(gene_id)
+        if success and position is not None:
+            self._gs.move_item_to(gene_id, position)
+        return success, message
 
     def remove_item(self, key) -> tuple[bool, str]:
         """Remove an installed gene (back to the hand), ORF or terminator."""
@@ -437,6 +495,166 @@ class Builder:
         """Move an item toward the 3' end. Returns (moved, rename_map)."""
         self._require_building()
         return self._gs.move_item_down(key)
+
+    def move_item_to(self, key, position: int) -> tuple[bool, dict]:
+        """Move an item so it ends up at ``position`` (for drag and drop).
+
+        Clamped to the genome; nothing moves in front of a UTR. Returns
+        (moved, rename_map) like move_item_up.
+        """
+        self._require_building()
+        return self._gs.move_item_to(key, position)
+
+
+class _PathwayBuilder:
+    """Collects the states and reactions of Builder.pathway()."""
+
+    def __init__(self, game_state: GameState, orf_spans: list):
+        self._gs = game_state
+        self._db = game_state.database
+        self._orf_spans = [span for span in orf_spans if span.gene_ids]  # what translation can pick
+        self._states: dict = {}
+        self._reactions: list = []
+        self._cleavages: set = set()
+
+    def build(self) -> Pathway:
+        gs = self._gs
+        start = gs.get_starting_virion_id()
+        self._entity(start, CellLocation.EXTRACELLULAR.value, is_start=True)
+
+        effects = gs.get_all_effects() + gs.get_global_effects()
+        modifiers = effect_modifiers(effects)
+        modify_effects = [e for e in effects if e.effect_type == EffectType.MODIFY_EFFECT.value]
+
+        for effect in effects:
+            flows = self._flows(effect)
+            if flows is None:
+                continue
+            inputs, outputs, base_chance = flows
+            modified_by = tuple(
+                m.name for m in modify_effects
+                if m.target_effect_id == effect.id
+                or (m.target_effect_id is None and m.target_category
+                    and m.target_category == effect.category))
+            self._reactions.append(PathwayReaction(
+                name=effect.name, kind=effect.effect_type,
+                inputs=tuple(inputs), outputs=tuple(outputs),
+                base_chance=base_chance,
+                chance=modified_chance(effect, base_chance, modifiers),
+                modified_by=modified_by, is_global=effect.is_global, effect_id=effect.id,
+            ))
+        return Pathway(states=tuple(self._states.values()), reactions=tuple(self._reactions))
+
+    def _flows(self, effect: Effect):
+        """(inputs, outputs, base_chance) of an effect, or None if it moves nothing."""
+        kind = effect.effect_type
+        if kind == EffectType.TRANSITION.value:
+            inputs = [PathwayFlow(self._entity(i.get('entity_id', 0), i.get('location', '')),
+                                  i.get('amount', 1), i.get('consumed', True))
+                      for i in effect.inputs]
+            outputs = []
+            for out in effect.outputs:
+                if out.get('is_unpack_genome', False):
+                    location = out.get('location', CellLocation.CYTOSOL.value)
+                    for genome_id in self._gs.virus_config.get_genome_entity_ids():
+                        outputs.append(PathwayFlow(self._entity(genome_id, location)))
+                elif self._gs.can_entity_exist(out.get('entity_id', 0)):
+                    outputs.append(PathwayFlow(self._entity(out.get('entity_id', 0), out.get('location', '')),
+                                               out.get('amount', 1)))
+            return inputs, outputs, effect.chance
+
+        if kind == EffectType.CHANGE_LOCATION.value:
+            if not effect.source_location or not effect.target_location:
+                return None
+            if effect.affected_entity_id is None:
+                source = self._any_entity(effect.source_location)
+                target = self._any_entity(effect.target_location)
+            else:
+                source = self._entity(effect.affected_entity_id, effect.source_location)
+                target = self._entity(effect.affected_entity_id, effect.target_location)
+            return [PathwayFlow(source)], [PathwayFlow(target)], effect.location_change_chance
+
+        if kind == EffectType.TRANSLATION.value:
+            inputs = [PathwayFlow(self._entity(t.get('entity_id', 0), t.get('location', '')), consumed=False)
+                      for t in effect.templates]
+            outputs = []
+            for span in self._orf_spans:
+                if effect.orf_targeting == "ORF-1 only" and span.name != "ORF-1":
+                    continue
+                if effect.orf_targeting == "Not ORF-1" and span.name == "ORF-1":
+                    continue
+                outputs.extend(self._orf_products(span))
+            return inputs, _unique(outputs), effect.translation_chance
+
+        return None  # Modify effects and Self-cleavage don't move entities themselves
+
+    def _orf_products(self, span: OrfSpan) -> list:
+        """What translating an ORF yields: a protein, or a polyprotein to cleave.
+
+        With terminator readthrough an ORF can also yield its longer variant.
+        """
+        variants = [span.gene_ids]
+        if span.readthrough_gene_ids:
+            variants.append(span.gene_ids + span.readthrough_gene_ids)
+
+        products = []
+        for index, variant in enumerate(variants):
+            genes = [g for g in map(self._gs.get_gene, variant) if g]
+            proteins = [g.gene_type_entity_id for g in genes if g.gene_type_entity_id is not None]
+            if len(proteins) == 1:
+                products.append(PathwayFlow(self._entity(proteins[0], CellLocation.CYTOSOL.value)))
+            elif proteins:
+                products.append(PathwayFlow(self._polyprotein(span.name, genes, proteins,
+                                                              readthrough=index == 1)))
+        return products
+
+    def _polyprotein(self, orf_name: str, genes: list, proteins: list, readthrough: bool) -> str:
+        key = f"poly:{orf_name}:{'+'.join(map(str, proteins))}"
+        if key not in self._states:
+            label = f"{orf_name} polyprotein" + (" (readthrough)" if readthrough else "")
+            self._states[key] = PathwayState(key, f"{label} ({len(proteins)} proteins)",
+                                             CellLocation.CYTOSOL.value,
+                                             EntityCategory.PROTEIN.value, None)
+        if key not in self._cleavages:
+            self._cleavages.add(key)
+            chance = 0.0
+            for gene in genes:
+                for effect in map(self._db.get_effect, gene.effect_ids):
+                    if effect and effect.effect_type == EffectType.SELF_CLEAVAGE.value:
+                        chance += effect.self_cleavage_chance
+            chance = min(100.0, chance)
+            outputs = tuple(PathwayFlow(self._entity(p, CellLocation.CYTOSOL.value), n)
+                            for p, n in Counter(proteins).items())
+            self._reactions.append(PathwayReaction(
+                name=f"Cleavage of the {orf_name} polyprotein", kind=EffectType.SELF_CLEAVAGE.value,
+                inputs=(PathwayFlow(key),), outputs=outputs, base_chance=chance, chance=chance,
+                modified_by=(), is_global=False, effect_id=None,
+            ))
+        return key
+
+    def _entity(self, entity_id: int, location: str, is_start: bool = False) -> str:
+        key = f"{entity_id}@{location}"
+        if key not in self._states:
+            entity = self._db.get_entity(entity_id)
+            self._states[key] = PathwayState(key, self._name(entity_id), location,
+                                             entity.category if entity else "", entity_id, is_start)
+        return key
+
+    def _any_entity(self, location: str) -> str:
+        key = f"any@{location}"
+        if key not in self._states:
+            self._states[key] = PathwayState(key, "Any entity", location, "", None)
+        return key
+
+    def _name(self, entity_id: int) -> str:
+        entity = self._db.get_entity(entity_id)
+        return entity.name if entity else f"Entity {entity_id}"
+
+
+def _unique(flows: list) -> list:
+    """Drop repeated flows, keeping order."""
+    seen = set()
+    return [f for f in flows if not (f in seen or seen.add(f))]
 
 
 # --------------------------------------------------------------------------

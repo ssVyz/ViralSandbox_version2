@@ -4,6 +4,7 @@ They drive a whole playthrough the way a UI would, and guard the boundary:
 UI modules may only reach the game through game_api (and models).
 """
 import ast
+import glob
 import os
 import random
 import re
@@ -18,7 +19,8 @@ from game_api import (GameAPI, GameFlowError, GamePhase, GenomeFit, ItemKind, Ro
                       RoundOutcome, RoundReadiness, StartResult, get_version)
 from simulation import SimulationEngine
 
-UI_MODULES = ["main.py", "main_menu.py", "builder.py", "play_module.py", "database_editor.py"]
+UI_MODULES = (["main.py", "main_menu.py", "builder.py", "play_module.py", "database_editor.py"]
+              + sorted(os.path.relpath(path, ROOT) for path in glob.glob(os.path.join(ROOT, "dpg_ui", "*.py"))))
 LOGIC_MODULES = {"game_state", "simulation", "session", "database", "settings"}
 
 
@@ -49,12 +51,13 @@ def _make_ready(api):
 # --------------------------------------------------------------------------
 
 def _imported_modules(path):
+    """Top-level modules a file imports (relative imports within a UI package excluded)."""
     tree = ast.parse(open(os.path.join(ROOT, path), encoding="utf-8").read())
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names.update(alias.name.split(".")[0] for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             names.add(node.module.split(".")[0])
     return names
 
@@ -281,6 +284,103 @@ def test_orf_spans_show_terminator_readthrough(api):
     builder.set_terminator_chance(50)
     span = builder.orf_spans()[0]
     assert span.readthrough_gene_ids == (second.id,)
+
+
+def _small_genes(builder, count):
+    genes = [g for g in builder.hand() if g.install_cost <= 30 and not g.is_utr]
+    assert len(genes) >= count, "fixture hand has too few cheap genes"
+    return genes[:count]
+
+
+def test_move_item_to_reorders_in_one_step(api):
+    builder = api.builder
+    a, b, c = _small_genes(builder, 3)
+    for gene in (a, b, c):
+        builder.install_gene(gene.id)
+    builder.add_orf()                                   # ORF-1 at the end
+
+    moved, renames = builder.move_item_to("ORF-1", 0)
+    assert moved and renames == {}
+    assert [i.key for i in builder.installed()] == ["ORF-1", a.id, b.id, c.id]
+
+    moved, _ = builder.move_item_to(a.id, 99)           # clamped to the end
+    assert moved
+    assert [i.key for i in builder.installed()][-1] == a.id
+    assert builder.move_item_to(a.id, 3) == (False, {}), "already there"
+
+
+def test_move_item_to_renames_markers(api):
+    builder = api.builder
+    builder.add_orf()                                   # ORF-1
+    gene, = _small_genes(builder, 1)
+    builder.install_gene(gene.id)
+    builder.add_orf()                                   # ORF-2 after the gene
+
+    moved, renames = builder.move_item_to("ORF-2", 0)
+    assert moved
+    assert renames == {"ORF-2": "ORF-1", "ORF-1": "ORF-2"}
+
+
+def test_nothing_moves_in_front_of_a_utr(bare_game):
+    utr = next(g for g in bare_game.database.genes.values() if g.is_utr)
+    plain = next(g for g in bare_game.database.genes.values() if not g.is_utr)
+    bare_game.evolution_points = 1000
+    bare_game.available_genes = [utr.id, plain.id]
+    bare_game.install_gene(plain.id)
+    bare_game.install_gene(utr.id)
+    assert bare_game.installed_genes[0] == utr.id
+
+    assert bare_game.move_item_to(plain.id, 0) == (False, {})
+    assert bare_game.move_item_to(utr.id, 1) == (False, {})
+
+
+def test_install_gene_at_a_position(api):
+    builder = api.builder
+    a, b = _small_genes(builder, 2)
+    builder.add_orf()
+    builder.install_gene(a.id)
+    assert builder.install_gene(b.id, position=1)[0]
+    assert [i.key for i in builder.installed()] == ["ORF-1", b.id, a.id]
+
+
+def test_pathway_of_a_loaded_virus(loaded_game):
+    from session import GameSession
+    from game_api import Builder
+    session = GameSession()
+    session.game_state, session.database = loaded_game, loaded_game.database
+    pathway = Builder(session).pathway()
+
+    states = {s.key: s for s in pathway.states}
+    start = [s for s in pathway.states if s.is_start]
+    assert len(start) == 1 and start[0].location == "Extracellular"
+    assert start[0].entity_id == loaded_game.get_starting_virion_id()
+
+    for reaction in pathway.reactions:
+        assert 0 <= reaction.chance <= 100
+        for flow in reaction.inputs + reaction.outputs:
+            assert flow.state in states, f"{reaction.name} refers to an unknown state"
+
+    kinds = {r.kind for r in pathway.reactions}
+    assert {"Transition", "Change location", "Translation"} <= kinds
+    assert not any(r.kind == "Modify effect" for r in pathway.reactions)
+
+    # Genome unpacking produces the locked genome type
+    genome_ids = set(loaded_game.virus_config.get_genome_entity_ids())
+    unpacked = {states[f.state].entity_id for r in pathway.reactions
+                if r.effect_id and any(o.get('is_unpack_genome') for o in
+                                       loaded_game.get_effect(r.effect_id).outputs)
+                for f in r.outputs}
+    assert genome_ids <= unpacked
+
+    # Modify effects show up in the chance of what they target
+    modified = [r for r in pathway.reactions if r.modified_by]
+    assert modified and any(r.chance != r.base_chance for r in modified)
+
+    # A multi-protein ORF is translated into a polyprotein that is cleaved
+    polys = [s for s in pathway.states if s.key.startswith("poly:")]
+    assert polys
+    cleavages = [r for r in pathway.reactions if r.kind == "Self-cleavage"]
+    assert {r.inputs[0].state for r in cleavages} == {p.key for p in polys}
 
 
 def test_genome_fit(bare_game):

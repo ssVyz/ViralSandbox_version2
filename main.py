@@ -20,6 +20,7 @@ from game_api import GameAPI
 # database editor; every other UI is gameplay only (see ui_interface.md).
 UIS = {
     "tkinter": "main_menu",
+    "dearpygui": "dpg_ui",
 }
 DEFAULT_UI = "tkinter"
 

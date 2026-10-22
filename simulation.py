@@ -41,6 +41,46 @@ def population_group(category: str) -> Optional[str]:
     return _CATEGORY_GROUPS.get(category)
 
 
+_NO_MODIFIER = {'chance': 100, 'interferon': 100, 'antibody': 100}
+
+
+def effect_modifiers(effects: list) -> dict:
+    """Combine the Modify effects among ``effects`` into multipliers.
+
+    Keyed ``('id', effect_id)`` or ``('category', name)``; values are
+    percentage multipliers (100 = no change, 150 = 1.5x). Multiple modifiers
+    targeting the same effect/category are multiplied together. Applies to
+    Transition, Translation, and Change location effects.
+    """
+    modifiers = defaultdict(lambda: {'chance': 100, 'interferon': 100, 'antibody': 100})
+
+    modify_effects = [e for e in effects
+                      if e.effect_type == EffectType.MODIFY_EFFECT.value]
+
+    for effect in modify_effects:
+        if effect.target_effect_id is not None:
+            key = ('id', effect.target_effect_id)
+        elif effect.target_category:
+            key = ('category', effect.target_category)
+        else:
+            continue
+
+        # Multiply modifiers together (150 * 150 / 100 = 225, meaning 2.25x total)
+        modifiers[key]['chance'] = modifiers[key]['chance'] * effect.chance_modifier / 100
+        modifiers[key]['interferon'] = modifiers[key]['interferon'] * effect.interferon_modifier / 100
+        modifiers[key]['antibody'] = modifiers[key]['antibody'] * effect.antibody_modifier / 100
+
+    return modifiers
+
+
+def modified_chance(effect: Effect, base_chance: float, modifiers: dict) -> float:
+    """``base_chance`` (%) after the modifiers targeting ``effect``, clamped to 0-100."""
+    modifier = modifiers.get(('id', effect.id), _NO_MODIFIER)
+    cat_modifier = modifiers.get(('category', effect.category), _NO_MODIFIER)
+    chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
+    return max(0, min(100, chance))
+
+
 @dataclass
 class EntityInstance:
     """Represents entities at a specific location."""
@@ -169,11 +209,7 @@ class SimulationEngine:
         self.sim_state = SimulationState()
 
         # Determine starting virion based on virus config
-        config = self.game_state.virus_config
-        if config.virion_type == "Enveloped":
-            starter_entity_id = self.game_state.database.ENVELOPED_VIRION_ID
-        else:
-            starter_entity_id = self.game_state.database.UNENVELOPED_VIRION_ID
+        starter_entity_id = self.game_state.get_starting_virion_id()
 
         # Start with 10 virions extracellularly
         key = (starter_entity_id, CellLocation.EXTRACELLULAR.value)
@@ -263,32 +299,8 @@ class SimulationEngine:
             self._apply_transition(effect, modifiers)
 
     def _get_effect_modifiers(self) -> dict:
-        """Get all effect modifiers keyed by effect ID and category.
-
-        Modifiers are stored as percentage multipliers (100 = no change, 150 = 1.5x).
-        Multiple modifiers targeting the same effect/category are multiplied together.
-        Applies to Transition, Translation, and Change location effects.
-        """
-        modifiers = defaultdict(lambda: {'chance': 100, 'interferon': 100, 'antibody': 100})
-
-        all_effects = self.effects + self.global_effects
-        modify_effects = [e for e in all_effects
-                         if e.effect_type == EffectType.MODIFY_EFFECT.value]
-
-        for effect in modify_effects:
-            if effect.target_effect_id is not None:
-                key = ('id', effect.target_effect_id)
-            elif effect.target_category:
-                key = ('category', effect.target_category)
-            else:
-                continue
-
-            # Multiply modifiers together (150 * 150 / 100 = 225, meaning 2.25x total)
-            modifiers[key]['chance'] = modifiers[key]['chance'] * effect.chance_modifier / 100
-            modifiers[key]['interferon'] = modifiers[key]['interferon'] * effect.interferon_modifier / 100
-            modifiers[key]['antibody'] = modifiers[key]['antibody'] * effect.antibody_modifier / 100
-
-        return modifiers
+        """Get all effect modifiers keyed by effect ID and category (see effect_modifiers)."""
+        return effect_modifiers(self.effects + self.global_effects)
 
     def _apply_transition(self, effect: Effect, modifiers: dict):
         """Apply a single transition effect."""
@@ -321,8 +333,7 @@ class SimulationEngine:
         cat_modifier = modifiers.get(('category', effect.category), {'chance': 100, 'interferon': 100, 'antibody': 100})
 
         # Apply modifiers multiplicatively (modifier values are percentages: 100 = no change, 150 = 1.5x)
-        total_chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
-        total_chance = max(0, min(100, total_chance))
+        total_chance = modified_chance(effect, base_chance, modifiers)
 
         if total_chance <= 0:
             return
@@ -467,12 +478,7 @@ class SimulationEngine:
             return
 
         # Calculate modified chance using modifiers
-        base_chance = effect.translation_chance
-        modifier = modifiers.get(('id', effect.id), {'chance': 100, 'interferon': 100, 'antibody': 100})
-        cat_modifier = modifiers.get(('category', effect.category), {'chance': 100, 'interferon': 100, 'antibody': 100})
-
-        total_chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
-        total_chance = max(0, min(100, total_chance))
+        total_chance = modified_chance(effect, effect.translation_chance, modifiers)
 
         if total_chance <= 0:
             return
@@ -571,12 +577,7 @@ class SimulationEngine:
         target = effect.target_location
 
         # Calculate modified chance using modifiers
-        base_chance = effect.location_change_chance
-        modifier = modifiers.get(('id', effect.id), {'chance': 100, 'interferon': 100, 'antibody': 100})
-        cat_modifier = modifiers.get(('category', effect.category), {'chance': 100, 'interferon': 100, 'antibody': 100})
-
-        chance = base_chance * (modifier['chance'] / 100) * (cat_modifier['chance'] / 100)
-        chance = max(0, min(100, chance))
+        chance = modified_chance(effect, effect.location_change_chance, modifiers)
 
         if not source or not target or chance <= 0:
             return

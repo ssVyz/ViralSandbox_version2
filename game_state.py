@@ -567,6 +567,26 @@ class GameState:
         rename_map = self.renumber_markers()
         return True, rename_map
 
+    def move_item_to(self, item, position: int) -> tuple[bool, dict]:
+        """Move an installed item so it ends up at index ``position``.
+
+        Same rules as move_item_up/down: UTR genes cannot move and nothing can
+        move in front of an installed UTR. The position is clamped to the
+        genome. Returns (moved, rename_map) like move_item_up.
+        """
+        if not self.can_move_item(item):
+            return False, {}
+
+        first = 1 if self.get_installed_utr_gene_id() is not None else 0
+        position = max(first, min(position, len(self.installed_genes) - 1))
+        index = self.installed_genes.index(item)
+        if position == index:
+            return False, {}
+
+        self.installed_genes.pop(index)
+        self.installed_genes.insert(position, item)
+        return True, self.renumber_markers()
+
     def get_orf_structure(self) -> list[dict]:
         """Get the ORF structure showing which genes belong to which ORF.
 
@@ -675,6 +695,12 @@ class GameState:
     def get_installed_terminator_count(self) -> int:
         """Get the number of Terminators currently installed."""
         return sum(1 for item in self.installed_genes if self.is_terminator(item))
+
+    def get_starting_virion_id(self) -> int:
+        """The virion entity every round starts with, from the locked virion type."""
+        if self.virus_config.virion_type == "Enveloped":
+            return self.database.ENVELOPED_VIRION_ID
+        return self.database.UNENVELOPED_VIRION_ID
 
     def get_lock_cost(self) -> int:
         """Get the cost to lock config. First lock is free, subsequent locks cost config_lock_cost."""

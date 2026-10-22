@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Viral Sandbox: educational virus-evolution game. Python 3.13 + Tkinter, stdlib only, managed with uv. Flat layout (modules at repo root). Architecture details: README.md.
+Viral Sandbox: educational virus-evolution game. Python 3.13, managed with uv. Two UIs: Tkinter (default, stdlib only, includes the database editor) and DearPyGui (`dpg_ui/` package, `--ui dearpygui`, the only third-party dependency, gameplay only). Otherwise flat layout (modules at repo root). Architecture details: README.md.
 
 ## Commands
 - Run: `uv run main.py`
