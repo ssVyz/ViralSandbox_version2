@@ -3,7 +3,7 @@
         "window_mode": "maximized"
     },
     "game": {
-        "starting_hand_size": 20,
+        "starting_hand_size": 5,
         "default_database": "default_database.json"
     }
 }

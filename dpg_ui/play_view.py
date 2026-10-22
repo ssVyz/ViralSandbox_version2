@@ -23,6 +23,9 @@ FRAME_BUDGET = 0.014     # seconds of simulation per frame at most
 PLOT_INTERVAL = 1 / 30   # seconds between plot/cell redraws
 PANEL_INTERVAL = 0.25    # seconds between table/log redraws
 HEADER_HEIGHT = 118
+# Speed slider steps (turns per second): fine at the slow end, condensed toward the fast end
+SPEEDS = (1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 15, 20, 30, 50, 80, 120, 240)
+DEFAULT_SPEED = 3
 MILESTONE_AREA = 210     # below the cell view
 # The symlog axis draws no tick labels by itself
 LOG_TICKS = (("0", 0), ("1", 1), ("10", 10), ("100", 100), ("1k", 1e3), ("10k", 1e4),
@@ -94,8 +97,13 @@ class PlayView:
                 self.run_button = dpg.add_button(label="", width=130, height=34, callback=self._on_toggle)
                 self.step_button = dpg.add_button(label="Step  →", width=90, height=34, callback=self._on_step)
                 dpg.add_spacer(width=10)
-                self.speed = dpg.add_slider_int(label="turns / s", default_value=12, min_value=1, max_value=240,
-                                                width=200, clamped=True)
+                self.speed = dpg.add_slider_int(default_value=SPEEDS.index(DEFAULT_SPEED), min_value=0,
+                                                max_value=len(SPEEDS) - 1, width=200, clamped=True,
+                                                format="")
+                with dpg.tooltip(self.speed):
+                    dpg.add_text("Turns per second; drag it while the round runs. "
+                                 "Fine steps from 1 to 5, coarser above.")
+                self.speed_text = dpg.add_text(_speed_label(DEFAULT_SPEED))
                 self.turbo = dpg.add_checkbox(label="Turbo")
                 with dpg.tooltip(self.turbo):
                     dpg.add_text("Run as many turns as fit in each frame (about 14 ms per frame).")
@@ -242,11 +250,15 @@ class PlayView:
         if dpg.get_value(self.turbo):
             wanted = 1_000_000
         else:
-            self._accum = min(self._accum + dt * dpg.get_value(self.speed), dpg.get_value(self.speed))
+            speed = self._turn_speed()
+            self._accum = min(self._accum + dt * speed, speed)
             wanted = int(self._accum)
             self._accum -= wanted
         if wanted:
             self._batch = self._worker.submit(_run_turns, self.round, wanted, FRAME_BUDGET)
+
+    def _turn_speed(self) -> float:
+        return SPEEDS[dpg.get_value(self.speed)]
 
     def _take_batch(self):
         results, self._batch = self._batch.result(), None
@@ -329,6 +341,7 @@ class PlayView:
         dpg.configure_item(self.ifn_bar, overlay=f"{s.interferon_level:,.0f}")
         dpg.bind_item_theme(self.ifn_bar, _bar_theme(_interferon_color(round(ifn * 20) / 20)))
         dpg.set_value(self.entity_text, f"Entities {s.total_entities:,}")
+        dpg.set_value(self.speed_text, _speed_label(self._turn_speed()))
         dpg.set_value(self.antibody_text, f"Antibodies {s.antibodies_active:,} ({s.antibodies_stored:,.0f} stored)")
         self._update_rate(now, s.turn)
 
@@ -350,7 +363,7 @@ class PlayView:
         self._rate_window = [(t, n) for t, n in self._rate_window if now - t < 1.0] + [(now, turn)]
         (t0, n0), (t1, n1) = self._rate_window[0], self._rate_window[-1]
         rate = (n1 - n0) / (t1 - t0) if t1 > t0 else 0
-        dpg.set_value(self.rate_text, f"{rate:,.0f} turns/s" if self.running else "")
+        dpg.set_value(self.rate_text, f"actual {rate:,.1f}/s" if self.running else "")
         dpg.set_value(self.status_text, "" if not self.over else dpg.get_value(self.status_text))
 
     def _update_plots(self):
@@ -442,6 +455,10 @@ class PlayView:
         if needle:
             lines = [line for line in lines if needle in line.lower()]
         dpg.set_value(self.log_text, "\n".join(reversed(lines[-800:])))
+
+
+def _speed_label(speed: float) -> str:
+    return f"{speed:g} turns/s"
 
 
 def _run_turns(round_, wanted: int, budget: float) -> list:

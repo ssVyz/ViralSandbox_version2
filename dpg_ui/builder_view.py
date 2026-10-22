@@ -383,7 +383,9 @@ class BuilderView:
         self.select((kind, key))
 
     def _on_drop_on_item(self, sender, app_data, user_data):
-        _, _, position = user_data
+        # A drop callback gets the target as sender and the payload's drag_data as
+        # app_data; its user_data is not the target's, so read that from the target
+        _, _, position = dpg.get_item_user_data(sender)
         self._drop(app_data, position)
 
     def _on_drop_append(self, sender, app_data, user_data):

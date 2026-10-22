@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 Every code change bumps the patch version; minor and major bumps happen only on request.
 
+## [0.2.5] - 2026-10-22
+
+### Fixed
+- DearPyGui UI: dropping a gene onto a row of the installed genome crashed (`TypeError` in `_on_drop_on_item`). Drop callbacks don't get the target's `user_data`; the row position is now read from the target item.
+
+### Changed
+- DearPyGui UI: the speed slider is stepped and non-linear: 1, 1.5, 2 … 5 turns/s take up the left 40 %, faster speeds up to 240 are condensed on the right. The default is 3 turns/s (was 12), and the label next to the slider shows the chosen speed.
+
 ## [0.2.4] - 2026-10-22
 
 ### Added

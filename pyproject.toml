@@ -1,6 +1,6 @@
 [project]
 name = "viral-sandbox"
-version = "0.2.4"
+version = "0.2.5"
 description = "An educational simulation game where players configure and evolve a virus to infect cells."
 readme = "README.md"
 requires-python = ">=3.11"
