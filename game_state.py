@@ -1,12 +1,32 @@
 """
 Game state manager for Viral Sandbox.
-Tracks the current game session state.
+Per-game state (EP, hand, genome, milestones, virus config) and the
+genome/builder rules. No UI dependency.
 """
 import random
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional
 from database import GameDatabase
 from models import Gene, Effect, EffectType
+
+DEFAULT_STARTING_EP = 100
+
+
+class RoundReadiness(Enum):
+    """Whether a play round can start, and if not, what is in the way."""
+    READY = "ready"
+    NO_GENES = "no_genes"                              # no gene installed (markers alone don't count)
+    CONFIG_NOT_LOCKED = "config_not_locked"            # the configuration was never locked
+    CONFIG_CHANGES_PENDING = "config_changes_pending"  # locked, but with unlocked changes on top
+
+
+class GenomeFit(Enum):
+    """How a gene's genome-type requirement relates to the locked genome."""
+    ANY = "any"                # the gene works with any genome
+    MATCH = "match"            # the locked genome is the one the gene needs
+    UNLOCKED = "unlocked"      # the gene needs a genome type, but none is locked yet
+    MISMATCH = "mismatch"      # the genome is locked to a different type
 
 
 @dataclass
@@ -23,11 +43,22 @@ class VirusConfig:
     # Whether config has been locked in
     is_locked: bool = False
 
+    # Allowed values for each configurable field
+    NUCLEIC_ACIDS = ("RNA", "DNA")
+    STRANDEDNESS_OPTIONS = ("single", "double")
+    POLARITIES = ("positive", "negative")
+    VIRION_TYPES = ("Enveloped", "Unenveloped")
+
     # Genome entity IDs (from database.py constants)
     POSITIVE_SENSE_RNA_ID = 3
     NEGATIVE_SENSE_RNA_ID = 4
     SSDNA_ID = 5
     DSDNA_ID = 6
+
+    @property
+    def polarity_applies(self) -> bool:
+        """Polarity only matters for single-stranded genomes."""
+        return self.strandedness == "single"
 
     def get_genome_string(self) -> str:
         """Get a human-readable genome description."""
@@ -77,7 +108,7 @@ class GameState:
     database: GameDatabase
 
     # Player resources
-    evolution_points: int = 100
+    evolution_points: int = DEFAULT_STARTING_EP
 
     # Gene management
     available_genes: list = field(default_factory=list)  # Gene IDs in hand
@@ -102,14 +133,17 @@ class GameState:
     achieved_milestones: set = field(default_factory=set)
 
     # Game settings
-    starting_ep: int = 100
+    starting_ep: int = DEFAULT_STARTING_EP
     starting_hand_size: int = 7
     genes_offered_per_round: int = 5
     config_lock_cost: int = 10
     orf_cost: int = 20  # Cost for ORFs after the first one
     terminator_cost: int = 10  # Cost to install a terminator
     terminator_chance: int = 100  # Percentage chance terminators apply (1-100)
-    win_threshold: int = 10000
+    win_threshold: int = 10000  # Virions needed for victory
+
+    TERMINATOR_CHANCE_MIN = 1
+    TERMINATOR_CHANCE_MAX = 100
 
     # Game status
     game_over: bool = False
@@ -122,7 +156,7 @@ class GameState:
 
     @classmethod
     def new_game(cls, database: GameDatabase,
-                 starting_ep: int = 100,
+                 starting_ep: int = DEFAULT_STARTING_EP,
                  starting_hand_size: int = 7) -> "GameState":
         """Create a new game state with a random starting hand."""
         state = cls(
@@ -308,6 +342,32 @@ class GameState:
     def is_marker(item) -> bool:
         """Check if an item is an ORF or Terminator marker (not a gene)."""
         return GameState.is_orf(item) or GameState.is_terminator(item)
+
+    def get_installed_gene_count(self) -> int:
+        """Get the number of genes installed (ORF and Terminator markers excluded)."""
+        return sum(1 for item in self.installed_genes if not self.is_marker(item))
+
+    def remove_item(self, item) -> tuple[bool, str, dict]:
+        """Remove an installed gene, ORF or Terminator.
+
+        Returns (success, message, rename_map); see remove_orf for rename_map.
+        """
+        if self.is_orf(item):
+            return self.remove_orf(item)
+        if self.is_terminator(item):
+            return self.remove_terminator(item)
+        success, message = self.remove_gene(item)
+        return success, message, {}
+
+    def can_move_item(self, item) -> bool:
+        """Check if an installed item may be reordered at all (UTR genes are fixed at the 5' end)."""
+        if item not in self.installed_genes:
+            return False
+        if not self.is_marker(item):
+            gene = self.get_gene(item)
+            if gene and gene.is_utr:
+                return False
+        return True
 
     def get_orf_cost(self) -> int:
         """Get the cost to install the next ORF."""
@@ -653,6 +713,46 @@ class GameState:
             return True, "Configuration locked (free)"
         return True, f"Configuration locked for {cost} EP"
 
+    def set_pending_config(self, nucleic_acid: Optional[str] = None,
+                           strandedness: Optional[str] = None,
+                           polarity: Optional[str] = None,
+                           virion_type: Optional[str] = None) -> tuple[bool, str]:
+        """Change fields of the pending (not yet locked) config.
+
+        Fields left as None are unchanged. Nothing changes if any value is not
+        allowed. Returns (success, message).
+        """
+        changes = {
+            "nucleic_acid": (nucleic_acid, VirusConfig.NUCLEIC_ACIDS),
+            "strandedness": (strandedness, VirusConfig.STRANDEDNESS_OPTIONS),
+            "polarity": (polarity, VirusConfig.POLARITIES),
+            "virion_type": (virion_type, VirusConfig.VIRION_TYPES),
+        }
+        for name, (value, allowed) in changes.items():
+            if value is not None and value not in allowed:
+                return False, f"Invalid {name.replace('_', ' ')}: {value!r}"
+
+        for name, (value, _) in changes.items():
+            if value is not None:
+                setattr(self.pending_config, name, value)
+        return True, "OK"
+
+    def set_terminator_chance(self, value: int) -> int:
+        """Set the terminator chance, clamped to its allowed range. Returns the value applied."""
+        value = max(self.TERMINATOR_CHANCE_MIN, min(self.TERMINATOR_CHANCE_MAX, int(value)))
+        self.terminator_chance = value
+        return value
+
+    def round_readiness(self) -> RoundReadiness:
+        """Check whether a play round can start with the current virus."""
+        if self.get_installed_gene_count() == 0:
+            return RoundReadiness.NO_GENES
+        if not self.virus_config.is_locked:
+            return RoundReadiness.CONFIG_NOT_LOCKED
+        if self.has_pending_changes():
+            return RoundReadiness.CONFIG_CHANGES_PENDING
+        return RoundReadiness.READY
+
     def reset_pending_config(self):
         """Reset pending config to current locked config."""
         self.pending_config = self.virus_config.copy()
@@ -719,6 +819,16 @@ class GameState:
 
         current_genome = self.virus_config.get_genome_string()
         return current_genome == gene.required_genome_type
+
+    def genome_fit(self, gene) -> GenomeFit:
+        """Classify a gene's genome-type requirement against the locked genome."""
+        if not gene.required_genome_type:
+            return GenomeFit.ANY
+        if not self.virus_config.is_locked:
+            return GenomeFit.UNLOCKED
+        if self.is_gene_genome_compatible(gene):
+            return GenomeFit.MATCH
+        return GenomeFit.MISMATCH
 
     def get_genome_incompatible_genes(self) -> set:
         """Get set of installed gene IDs that are incompatible with current genome type."""
@@ -1018,10 +1128,6 @@ class GameState:
 
         if self.current_round > self.max_rounds:
             self.game_over = True
-            return
-
-        # Offer new genes to choose from
-        # This will be handled by the UI - just prepare the offering
 
     def add_ep(self, amount: int, reason: str = ""):
         """Add evolution points (from milestones, etc)."""
@@ -1039,11 +1145,3 @@ class GameState:
         self.achieved_milestones.add(milestone_id)
         self.add_ep(milestone.reward_ep, f"Milestone: {milestone.name}")
         return True
-
-    def check_win_condition(self, virion_count: int) -> bool:
-        """Check if the player has won."""
-        if virion_count >= self.win_threshold:
-            self.game_won = True
-            self.game_over = True
-            return True
-        return False

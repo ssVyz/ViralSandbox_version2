@@ -16,4 +16,4 @@ Logic modules (`models`, `database`, `settings`, `game_state`, `simulation`, `se
   - Changelog: newest first, `## [x.y.z] - YYYY-MM-DD`, grouped under Added/Changed/Fixed/Removed.
 - Minor/major versions change only when the user asks.
 - Never run `git commit` or `git push`; humans handle commits. Leave changes in the working tree.
-- Never edit CLAUDE.md.
+- Never edit CLAUDE.md, unless specifically instructed to do so.

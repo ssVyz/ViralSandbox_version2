@@ -1,9 +1,9 @@
 [project]
 name = "viral-sandbox"
-version = "0.2.1"
+version = "0.2.2"
 description = "An educational simulation game where players configure and evolve a virus to infect cells."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 # No third-party dependencies: the game runs entirely on the standard library
 # (tkinter, json, dataclasses, pathlib, ...). Add runtime deps here if that changes.

@@ -1,11 +1,13 @@
 """
 Database Editor for Viral Sandbox.
 Allows creating, editing, and saving game databases.
+
+The content database it edits is handed in by game_api.GameAPI.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import Optional, Callable
-from database import GameDatabase
+from game_api import GameDatabase
 from models import (
     ViralEntity, Effect, Gene, Milestone,
     EntityCategory, CellLocation,
@@ -16,13 +18,14 @@ from models import (
 class DatabaseEditor(tk.Toplevel):
     """Database editor window."""
 
-    def __init__(self, parent, on_close: Optional[Callable] = None):
+    def __init__(self, parent, database: GameDatabase,
+                 on_close: Optional[Callable] = None):
         super().__init__(parent)
         self.title("Viral Sandbox - Database Editor")
         self.geometry("1200x800")
         self.minsize(1000, 600)
 
-        self.database = GameDatabase()
+        self.database = database
         self.on_close_callback = on_close
         self.current_selection = None
 

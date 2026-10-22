@@ -2,32 +2,46 @@
 Play Module for Viral Sandbox.
 Where the virus simulation runs and players observe their virus infecting a cell.
 
-This module is the *view*. All simulation rules live in simulation.py; this
-window drives the engine from a Tk timer and redraws in response to the
-engine's on_* callbacks.
+This module is the *view*. It paces the round from a Tk timer, calling
+game_api.Round.step() once per turn and drawing the snapshot it returns; all
+simulation rules live behind the API.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, Callable
 from collections import defaultdict
 
-from game_state import GameState
+from game_api import GameAPI, RoundSnapshot
 from models import CellLocation, EntityCategory
-from simulation import SimulationEngine, SimulationState
 from builder import BlueprintDialog
+
+# Turn delay (ms) for each speed setting
+SPEED_DELAYS = {"normal": 500, "fast": 100, "max": 1}
+
+# Colors per population group (graph) and entity category (entity bars)
+GROUP_COLORS = {'Virion': 'purple', 'RNA': 'green', 'DNA': 'blue',
+                'Protein': 'orange', 'Antibodies': 'red'}
+CATEGORY_COLORS = {
+    EntityCategory.VIRION.value: 'purple',
+    EntityCategory.VIRAL_COMPLEX.value: 'purple',
+    EntityCategory.RNA.value: 'green',
+    EntityCategory.DNA.value: 'blue',
+    EntityCategory.PROTEIN.value: 'orange',
+}
+POLYPROTEIN_COLOR = '#FF8C00'  # Dark orange
+UNKNOWN_COLOR = '#888888'
 
 
 class PlayModule(tk.Toplevel):
     """Play module window where simulation runs."""
 
-    WIN_THRESHOLD = SimulationEngine.WIN_THRESHOLD
-
-    def __init__(self, parent, game_state: GameState,
+    def __init__(self, parent, api: GameAPI,
                  on_return: Optional[Callable] = None,
                  window_mode: str = "maximized"):
         super().__init__(parent)
 
-        self.game_state = game_state
+        self.api = api
+        self.round = api.current_round
         self.on_return_callback = on_return
 
         self.title("Viral Sandbox - Play Module")
@@ -36,42 +50,42 @@ class PlayModule(tk.Toplevel):
         if window_mode == "maximized":
             self.state('zoomed')
 
-        # The engine owns all simulation rules and state; this window observes
-        # it and redraws when it reports progress.
-        self.engine = SimulationEngine(game_state)
-        self.engine.on_turn_complete = self._update_display
-        self.engine.on_game_end = self._on_game_end
-        self.engine.on_milestone_achieved = self._update_milestone_display
-        self.engine.on_active_milestones_changed = self._populate_milestones
-
-        # Simulation timer
+        # Pacing is this window's job: the round only advances when we step it.
+        self.is_running = False
         self.sim_timer = None
+        self.snapshot: RoundSnapshot = self.round.snapshot()
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._create_ui()
         self._update_display()
 
-    @property
-    def sim_state(self) -> SimulationState:
-        """Live simulation state, owned by the engine."""
-        return self.engine.sim_state
-
     def _run_turn(self):
-        """Advance the simulation by one turn, then schedule the next."""
-        if not self.sim_state.is_running or self.sim_state.is_ended:
+        """Advance the round by one turn, then schedule the next."""
+        self.sim_timer = None
+        if not self.is_running or self.round.is_over:
             return
 
-        self.engine.run_turn()
+        result = self.round.step()
+        self.snapshot = result.snapshot
+        self._update_display()
 
-        if not self.sim_state.is_ended:
+        for milestone_id in result.milestones_achieved:
+            self._update_milestone_display(milestone_id)
+        if result.milestones_changed:
+            self._populate_milestones()
+
+        if result.ended:
+            self._on_round_over()
+        else:
             self._schedule_next_turn()
 
-    def _on_game_end(self):
-        """Engine reported that the run has ended."""
-        if self.sim_state.extinction:
+    def _on_round_over(self):
+        """The round ended in victory or extinction."""
+        self.is_running = False
+        if self.snapshot.is_extinct:
             self.status_var.set("Virus Extinct!")
-        elif self.sim_state.is_victory:
+        elif self.snapshot.is_victory:
             self.status_var.set("VICTORY!")
         self._show_end_dialog()
 
@@ -80,7 +94,7 @@ class PlayModule(tk.Toplevel):
         if self.sim_timer:
             self.after_cancel(self.sim_timer)
 
-        if not self.sim_state.is_ended:
+        if not self.round.is_over:
             if messagebox.askyesno("End Round",
                                    "End this play round and return to Builder?"):
                 self._end_round(early_exit=True)
@@ -145,7 +159,7 @@ class PlayModule(tk.Toplevel):
         self.virion_count_var = tk.StringVar(value="10")
         ttk.Label(virion_frame, textvariable=self.virion_count_var,
                   font=('TkDefaultFont', 11, 'bold'), foreground='purple').pack(side=tk.LEFT, padx=5)
-        ttk.Label(virion_frame, text=f"/ {self.WIN_THRESHOLD}").pack(side=tk.LEFT)
+        ttk.Label(virion_frame, text=f"/ {self.round.win_threshold}").pack(side=tk.LEFT)
 
         # Status bars frame
         bars_frame = ttk.Frame(top_frame)
@@ -224,19 +238,17 @@ class PlayModule(tk.Toplevel):
         # Filter section
         ttk.Label(controls_frame, text="Show:", font=('TkDefaultFont', 9)).pack(anchor='w')
 
-        # Category filter checkboxes
+        # Population group filter checkboxes
         self.graph_filters = {}
-        colors = [('Virion', 'purple'), ('RNA', 'green'),
-                  ('DNA', 'blue'), ('Protein', 'orange'),
-                  ('Antibodies', 'red')]
-        for name, color in colors:
+        for name in self.round.population_groups:
             var = tk.BooleanVar(value=True)
             self.graph_filters[name] = var
             cb_frame = ttk.Frame(controls_frame)
             cb_frame.pack(anchor='w')
             cb = ttk.Checkbutton(cb_frame, variable=var, command=self._draw_graph)
             cb.pack(side=tk.LEFT)
-            ttk.Label(cb_frame, text="■", foreground=color).pack(side=tk.LEFT)
+            ttk.Label(cb_frame, text="■",
+                      foreground=GROUP_COLORS.get(name, UNKNOWN_COLOR)).pack(side=tk.LEFT)
             ttk.Label(cb_frame, text=name, font=('TkDefaultFont', 8)).pack(side=tk.LEFT)
 
     def _create_controls(self, parent):
@@ -315,23 +327,12 @@ class PlayModule(tk.Toplevel):
 
         self.milestone_labels = {}
 
-        # Get milestones to display: achieved OR active
-        milestones_to_show = []
-        for milestone in self.game_state.database.milestones.values():
-            is_achieved = milestone.id in self.game_state.achieved_milestones
-            is_active = milestone.id in self.sim_state.active_milestone_ids
-            if is_achieved or is_active:
-                milestones_to_show.append(milestone)
+        for status in self.round.tracked_milestones():
+            milestone = status.milestone
+            achieved = status.achieved
 
-        # Sort by ID for consistent ordering
-        milestones_to_show.sort(key=lambda m: m.id)
-
-        for milestone in milestones_to_show:
             frame = ttk.Frame(self.milestone_frame)
             frame.pack(fill=tk.X, padx=5, pady=2)
-
-            # Check if already achieved
-            achieved = milestone.id in self.game_state.achieved_milestones
 
             # Checkbox-style indicator
             indicator = "✓" if achieved else "○"
@@ -347,7 +348,7 @@ class PlayModule(tk.Toplevel):
 
     def _toggle_simulation(self):
         """Toggle simulation between running and paused."""
-        if self.sim_state.is_running:
+        if self.is_running:
             # Stop the simulation
             self._stop_simulation()
         else:
@@ -356,11 +357,10 @@ class PlayModule(tk.Toplevel):
 
     def _start_simulation(self):
         """Start the simulation."""
-        if self.sim_state.is_ended:
+        if self.round.is_over:
             return
 
-        self.sim_state.is_running = True
-        self.sim_state.speed = self.speed_var.get()
+        self.is_running = True
 
         # Update button to red "Stop"
         self.run_stop_btn.config(text="Stop", bg='#f44336',
@@ -372,7 +372,7 @@ class PlayModule(tk.Toplevel):
 
     def _stop_simulation(self):
         """Stop/pause the simulation."""
-        self.sim_state.is_running = False
+        self.is_running = False
 
         if self.sim_timer:
             self.after_cancel(self.sim_timer)
@@ -387,10 +387,9 @@ class PlayModule(tk.Toplevel):
     def _on_speed_change(self):
         """Handle speed control change."""
         speed = self.speed_var.get()
-        self.sim_state.speed = speed
 
         # If running, update the status and reschedule with new speed
-        if self.sim_state.is_running:
+        if self.is_running:
             if self.sim_timer:
                 self.after_cancel(self.sim_timer)
                 self.sim_timer = None
@@ -401,17 +400,11 @@ class PlayModule(tk.Toplevel):
 
     def _schedule_next_turn(self):
         """Schedule the next simulation turn."""
-        if not self.sim_state.is_running or self.sim_state.is_ended:
+        if not self.is_running or self.round.is_over:
             return
 
-        speed = self.sim_state.speed
-        if speed == "normal":
-            delay = 500  # ms
-        elif speed == "fast":
-            delay = 100
-        elif speed == "max":
-            delay = 1
-        else:
+        delay = SPEED_DELAYS.get(self.speed_var.get())
+        if delay is None:
             return
 
         self.sim_timer = self.after(delay, self._run_turn)
@@ -424,35 +417,17 @@ class PlayModule(tk.Toplevel):
             lbl.configure(text="✓", foreground="green")
 
     def _update_display(self):
-        """Update all display elements."""
-        self.turn_var.set(str(self.sim_state.turn))
-
-        # Count entities (including polyproteins)
-        total = (sum(self.sim_state.entities.values()) +
-                 sum(self.sim_state.new_entities.values()) +
-                 sum(self.sim_state.polyproteins.values()) +
-                 sum(self.sim_state.new_polyproteins.values()))
-        self.entity_count_var.set(str(total))
-
-        # Count virions
-        virions = 0
-        for (entity_id, location), count in self.sim_state.entities.items():
-            entity = self.game_state.database.get_entity(entity_id)
-            if entity and entity.category in [EntityCategory.VIRION.value,
-                                               EntityCategory.VIRAL_COMPLEX.value]:
-                virions += count
-        for (entity_id, location), count in self.sim_state.new_entities.items():
-            entity = self.game_state.database.get_entity(entity_id)
-            if entity and entity.category in [EntityCategory.VIRION.value,
-                                               EntityCategory.VIRAL_COMPLEX.value]:
-                virions += count
-        self.virion_count_var.set(str(virions))
+        """Update all display elements from the latest snapshot."""
+        snapshot = self.snapshot
+        self.turn_var.set(str(snapshot.turn))
+        self.entity_count_var.set(str(snapshot.total_entities))
+        self.virion_count_var.set(str(snapshot.virion_count))
 
         # Update status bars
         self._update_interferon_bar()
 
-        stored = self.sim_state.antibody_stored
-        active = self.sim_state.antibody_active
+        stored = snapshot.antibodies_stored
+        active = snapshot.antibodies_active
         self.ab_bar['value'] = min(100, active)
         self.ab_var.set(f"{active} ({stored:.0f} stored)")
 
@@ -464,8 +439,8 @@ class PlayModule(tk.Toplevel):
 
     def _update_interferon_bar(self):
         """Update the interferon bar with dynamic color based on level."""
-        level = self.sim_state.interferon_level
-        max_level = 100000
+        level = self.snapshot.interferon_level
+        max_level = self.round.interferon_max
 
         # Calculate bar width (0 to 200 pixels)
         bar_width = int((level / max_level) * 200)
@@ -507,42 +482,15 @@ class PlayModule(tk.Toplevel):
         if width < 10:
             width = 400
 
-        # Group entities by location
-        location_order = [
-            CellLocation.EXTRACELLULAR.value,
-            CellLocation.MEMBRANE.value,
-            CellLocation.ENDOSOME.value,
-            CellLocation.ER.value,
-            CellLocation.CYTOSOL.value,
-            CellLocation.NUCLEUS.value
-        ]
+        # Group entries by location, compartments in order from outside in
+        location_order = [loc.value for loc in CellLocation]
 
-        entities_by_location = defaultdict(list)
-        all_entities = dict(self.sim_state.entities)
-        for key, count in self.sim_state.new_entities.items():
-            if key in all_entities:
-                all_entities[key] += count
-            else:
-                all_entities[key] = count
-
-        for (entity_id, location), count in all_entities.items():
-            entities_by_location[location].append((entity_id, count, False))  # False = not polyprotein
-
-        # Add polyproteins to cytosol
-        all_polyproteins = dict(self.sim_state.polyproteins)
-        for poly, count in self.sim_state.new_polyproteins.items():
-            if poly in all_polyproteins:
-                all_polyproteins[poly] += count
-            else:
-                all_polyproteins[poly] = count
-
-        for poly, count in all_polyproteins.items():
-            if count > 0:
-                entities_by_location[CellLocation.CYTOSOL.value].append((poly, count, True))  # True = polyprotein
+        entries_by_location = defaultdict(list)
+        for entry in self.snapshot.population:
+            entries_by_location[entry.location].append(entry)
 
         # Find max count for scaling
-        all_counts = [c for c in all_entities.values()] + [c for c in all_polyproteins.values()] + [50]
-        max_count = max(all_counts)
+        max_count = max([entry.count for entry in self.snapshot.population] + [50])
 
         y = 10
         bar_height = 18
@@ -556,38 +504,14 @@ class PlayModule(tk.Toplevel):
             y += 20
 
             # Entity bars (if any entities in this location)
-            if location in entities_by_location:
-                for item, count, is_poly in sorted(entities_by_location[location],
-                                                   key=lambda x: -x[1]):
-                    if is_poly:
-                        # Polyprotein - build display name using abbreviations if available
-                        poly = item
-                        protein_names = []
-                        for eid in poly.protein_entity_ids:
-                            entity = self.game_state.database.get_entity(eid)
-                            if entity:
-                                protein_names.append(entity.get_display_name(use_abbreviation=True))
-                            else:
-                                protein_names.append(f"ID:{eid}")
-                        name = f"Poly ({', '.join(protein_names)})"
-                        color = '#FF8C00'  # Dark orange for polyproteins
+            if location in entries_by_location:
+                for entry in sorted(entries_by_location[location], key=lambda e: -e.count):
+                    name = entry.name
+                    count = entry.count
+                    if entry.is_polyprotein:
+                        color = POLYPROTEIN_COLOR
                     else:
-                        entity_id = item
-                        entity = self.game_state.database.get_entity(entity_id)
-                        name = entity.name if entity else f"Entity {entity_id}"
-
-                        # Category color
-                        color = '#888888'
-                        if entity:
-                            cat = entity.category
-                            if cat == EntityCategory.VIRION.value or cat == EntityCategory.VIRAL_COMPLEX.value:
-                                color = 'purple'
-                            elif cat == EntityCategory.RNA.value:
-                                color = 'green'
-                            elif cat == EntityCategory.DNA.value:
-                                color = 'blue'
-                            elif cat == EntityCategory.PROTEIN.value:
-                                color = 'orange'
+                        color = CATEGORY_COLORS.get(entry.category, UNKNOWN_COLOR)
 
                     # Draw bar (compressed to leave more space for text)
                     max_bar_width = width - bar_start_x - 50  # Leave space for count text
@@ -640,16 +564,11 @@ class PlayModule(tk.Toplevel):
         graph_width = width - margin_left - margin_right
         graph_height = height - margin_top - margin_bottom
 
-        if len(self.sim_state.history) < 2:
-            return
-
         # Get display window from dropdown
         window_setting = self.graph_window_var.get()
-        if window_setting == "All":
-            history = self.sim_state.history[:]
-        else:
-            window_size = int(window_setting)
-            history = self.sim_state.history[-window_size:]
+        history = self.round.history(None if window_setting == "All" else int(window_setting))
+        if len(history) < 2:
+            return
 
         # Get enabled categories from filter
         enabled_categories = [cat for cat, var in self.graph_filters.items() if var.get()]
@@ -699,12 +618,9 @@ class PlayModule(tk.Toplevel):
         self.graph_canvas.create_text(margin_left + graph_width // 2, height - 5,
                                        text="Turn", anchor='n', font=('TkDefaultFont', 8))
 
-        # Draw lines for each enabled category
-        colors = {'Virion': 'purple', 'RNA': 'green', 'DNA': 'blue', 'Protein': 'orange', 'Antibodies': 'red'}
-
-        for category, color in colors.items():
-            if category not in enabled_categories:
-                continue
+        # Draw lines for each enabled population group
+        for category in enabled_categories:
+            color = GROUP_COLORS.get(category, UNKNOWN_COLOR)
 
             points = []
             for i, (turn, counts) in enumerate(history):
@@ -732,12 +648,12 @@ class PlayModule(tk.Toplevel):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        text.insert('1.0', '\n'.join(self.sim_state.log))
+        text.insert('1.0', '\n'.join(self.round.log()))
         text.configure(state='disabled')
 
     def _enter_review_mode(self):
         """Enter review mode after extinction - let the player inspect the round."""
-        self.sim_state.is_running = False
+        self.is_running = False
 
         # Hide the Run/Stop button
         self.run_stop_btn.pack_forget()
@@ -755,7 +671,7 @@ class PlayModule(tk.Toplevel):
 
     def _request_end_round(self):
         """Request to end the current round early."""
-        if self.sim_state.is_ended:
+        if self.round.is_over:
             # Round already ended (extinction/review mode) - no confirmation needed
             self._end_round()
             return
@@ -769,6 +685,8 @@ class PlayModule(tk.Toplevel):
         if self.sim_timer:
             self.after_cancel(self.sim_timer)
 
+        summary = self.round.summary()
+
         dialog = tk.Toplevel(self)
         dialog.title("Round Complete")
         dialog.geometry("400x350")
@@ -778,7 +696,7 @@ class PlayModule(tk.Toplevel):
         # Handle window close button
         def on_dialog_close():
             dialog.destroy()
-            if self.sim_state.extinction:
+            if summary.is_extinct:
                 self._enter_review_mode()
             else:
                 self._end_round()
@@ -789,10 +707,10 @@ class PlayModule(tk.Toplevel):
         frame.pack(fill=tk.BOTH, expand=True)
 
         # Result
-        if self.sim_state.is_victory:
+        if summary.is_victory:
             result_text = "VICTORY!"
             result_color = "green"
-        elif self.sim_state.extinction:
+        elif summary.is_extinct:
             result_text = "Virus Extinct"
             result_color = "red"
         else:
@@ -804,27 +722,25 @@ class PlayModule(tk.Toplevel):
                   foreground=result_color).pack(pady=10)
 
         # Stats
-        ttk.Label(frame, text=f"Turns survived: {self.sim_state.turn}").pack()
+        ttk.Label(frame, text=f"Turns survived: {summary.turns}").pack()
 
         # Milestones earned this round
-        milestones_earned = [m for m in self.game_state.database.milestones.values()
-                           if m.id in self.game_state.achieved_milestones]
-        if milestones_earned:
+        if summary.milestones_achieved:
             ttk.Label(frame, text="\nMilestones achieved:",
                       font=('TkDefaultFont', 10, 'bold')).pack()
-            for m in milestones_earned:
+            for m in summary.milestones_achieved:
                 ttk.Label(frame, text=f"  • {m.name} (+{m.reward_ep} EP)").pack()
 
-        ttk.Label(frame, text=f"\nTotal EP: {self.game_state.evolution_points}",
+        ttk.Label(frame, text=f"\nTotal EP: {summary.evolution_points}",
                   font=('TkDefaultFont', 11, 'bold')).pack()
 
         # Buttons
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(pady=20)
 
-        if self.sim_state.is_victory:
+        if summary.is_victory:
             tk.Button(btn_frame, text="View Virus Blueprint",
-                      command=lambda: BlueprintDialog(dialog, self.game_state),
+                      command=lambda: BlueprintDialog(dialog, self.api.builder.blueprint()),
                       bg='#9c27b0', fg='white',
                       font=('TkDefaultFont', 10, 'bold'),
                       activebackground='#7b1fa2', activeforeground='white'
@@ -833,7 +749,7 @@ class PlayModule(tk.Toplevel):
         ttk.Button(btn_frame, text="View Log",
                    command=self._show_log).pack(side=tk.LEFT, padx=5)
 
-        if self.sim_state.extinction:
+        if summary.is_extinct:
             ttk.Button(btn_frame, text="Review Round",
                        command=lambda: [dialog.destroy(), self._enter_review_mode()]
                        ).pack(side=tk.LEFT, padx=5)
@@ -846,11 +762,10 @@ class PlayModule(tk.Toplevel):
         if self.sim_timer:
             self.after_cancel(self.sim_timer)
 
-        self.sim_state.is_ended = True
-        self.sim_state.is_running = False
+        self.is_running = False
 
         if early_exit:
-            self.sim_state.log.append("\n=== Round ended early ===")
+            self.round.end_early()
 
         self._return_to_builder()
 
@@ -858,7 +773,7 @@ class PlayModule(tk.Toplevel):
         """Return to the builder module."""
         # Call callback first (while this window still exists)
         if self.on_return_callback:
-            self.on_return_callback(victory=self.sim_state.is_victory)
+            self.on_return_callback()
 
         # Then destroy this window
         self.destroy()

@@ -43,7 +43,6 @@ def test_engine_runs_without_any_tk_objects(loaded_game):
 
 def _final(game, seed, turns=25):
     engine = SimulationEngine(game, rng=random.Random(seed))
-    engine.sim_state.is_running = True
     for _ in range(turns):
         if engine.sim_state.is_ended:
             break
@@ -99,7 +98,6 @@ def test_bare_virus_only_decays(bare_game):
 
     peak = start
     for _ in range(30):
-        engine.sim_state.is_running = True
         engine.run_turn()
         peak = max(peak, sum(engine.sim_state.entities.values()))
 
@@ -125,7 +123,38 @@ def test_win_threshold_is_respected(loaded_game):
         if (e := loaded_game.database.get_entity(eid))
         and e.category in ("Virion", "Viral complex")
     )
-    assert virions >= SimulationEngine.WIN_THRESHOLD
+    assert virions >= loaded_game.win_threshold
+
+
+def test_count_population_matches_the_win_check(loaded_game):
+    engine = SimulationEngine(loaded_game, rng=random.Random(7))
+    state = engine.run_until_end(max_turns=400)
+    total, virions = engine.count_population()
+    assert state.is_victory
+    assert virions >= loaded_game.win_threshold
+    assert total >= virions
+
+
+def test_end_early_stops_the_run(loaded_game):
+    engine = SimulationEngine(loaded_game, rng=random.Random(7))
+    engine.run_turn()
+    engine.end_early()
+    turn = engine.sim_state.turn
+
+    engine.run_turn()
+
+    assert engine.sim_state.is_ended
+    assert not engine.sim_state.is_victory and not engine.sim_state.extinction
+    assert engine.sim_state.turn == turn, "an ended run must not advance"
+    assert "Round ended early" in engine.sim_state.log[-1]
+
+
+def test_history_uses_the_population_groups(loaded_game):
+    from simulation import POPULATION_GROUPS
+    engine = SimulationEngine(loaded_game, rng=random.Random(5))
+    engine.run_until_end(max_turns=5)
+    for _, counts in engine.sim_state.history:
+        assert tuple(counts) == POPULATION_GROUPS
 
 
 # --------------------------------------------------------------------------

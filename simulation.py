@@ -5,8 +5,8 @@ The complete turn-by-turn rules of the virus simulation, with no UI dependency.
 This module must never import tkinter: it is what makes the game runnable
 headlessly from tests and balance scripts.
 
-The UI observes the run through the ``on_*`` callbacks rather than being called
-into directly. Driving a simulation looks like::
+UIs do not drive the engine directly: game_api.Round wraps it and hands the UI
+snapshots. Headless callers (tests, simulate.py) use it as::
 
     engine = SimulationEngine(game_state, rng=random.Random(42))
     engine.run_until_end()
@@ -19,6 +19,26 @@ from typing import Callable, Optional
 
 from game_state import GameState
 from models import Effect, EffectType, CellLocation, EntityCategory
+
+# Interferon level is capped here; interferon degradation modifiers scale against it.
+INTERFERON_MAX = 100000
+
+# Groups the population is counted in for history, graphs and count milestones.
+# "Produce entity count" milestones name one of these as their target category.
+POPULATION_GROUPS = ("Virion", "RNA", "DNA", "Protein", "Antibodies")
+
+_CATEGORY_GROUPS = {
+    EntityCategory.VIRION.value: "Virion",
+    EntityCategory.VIRAL_COMPLEX.value: "Virion",
+    EntityCategory.RNA.value: "RNA",
+    EntityCategory.DNA.value: "DNA",
+    EntityCategory.PROTEIN.value: "Protein",
+}
+
+
+def population_group(category: str) -> Optional[str]:
+    """The population group an entity category is counted under, if any."""
+    return _CATEGORY_GROUPS.get(category)
 
 
 @dataclass
@@ -66,10 +86,6 @@ class SimulationState:
     # Simulation log
     log: list = field(default_factory=list)
 
-    # Running state
-    is_running: bool = False
-    speed: str = "normal"  # "paused", "normal", "fast", "max"
-
     # End state
     is_ended: bool = False
     is_victory: bool = False
@@ -81,8 +97,6 @@ class SimulationEngine:
     Observers may assign the ``on_*`` attributes to be notified as the run
     progresses; each is optional and defaults to doing nothing.
     """
-
-    WIN_THRESHOLD = 10000
 
     def __init__(self, game_state: GameState, rng=None):
         self.game_state = game_state
@@ -110,16 +124,41 @@ class SimulationEngine:
         if callback is not None:
             callback(*args)
 
+    @property
+    def win_threshold(self) -> int:
+        """Virions needed for victory."""
+        return self.game_state.win_threshold
+
     def run_until_end(self, max_turns: int = 10000) -> SimulationState:
         """Run turns headlessly until the simulation ends or ``max_turns``.
 
         Returns the final simulation state.
         """
-        self.sim_state.is_running = True
         while not self.sim_state.is_ended and self.sim_state.turn < max_turns:
             self.run_turn()
-        self.sim_state.is_running = False
         return self.sim_state
+
+    def end_early(self):
+        """End the run before victory or extinction (the player stopped it)."""
+        if self.sim_state.is_ended:
+            return
+        self.sim_state.is_ended = True
+        self.sim_state.log.append("\n=== Round ended early ===")
+
+    def count_population(self) -> tuple[int, int]:
+        """Return ``(total, virions)``: every entity and polyprotein, and the
+        virion-group entities among them."""
+        total = 0
+        virions = 0
+        for entities in (self.sim_state.entities, self.sim_state.new_entities):
+            for (entity_id, location), count in entities.items():
+                total += count
+                entity = self.game_state.database.get_entity(entity_id)
+                if entity and population_group(entity.category) == "Virion":
+                    virions += count
+        total += sum(self.sim_state.polyproteins.values())
+        total += sum(self.sim_state.new_polyproteins.values())
+        return total, virions
 
     def _build_effects_list(self) -> list[Effect]:
         """Build the list of effects from installed genes."""
@@ -156,8 +195,8 @@ class SimulationEngine:
         self._record_history()
 
     def run_turn(self):
-        """Run a single simulation turn."""
-        if not self.sim_state.is_running or self.sim_state.is_ended:
+        """Run a single simulation turn. Does nothing once the run has ended."""
+        if self.sim_state.is_ended:
             return
 
         self.sim_state.turn += 1
@@ -339,7 +378,7 @@ class SimulationEngine:
         ifn_prod = ifn_prod * (modifier.get('interferon', 100) / 100) * (cat_modifier.get('interferon', 100) / 100)
         if ifn_prod > 0:
             self.sim_state.interferon_level += ifn_prod * successes
-            self.sim_state.interferon_level = min(100000, self.sim_state.interferon_level)
+            self.sim_state.interferon_level = min(INTERFERON_MAX, self.sim_state.interferon_level)
 
         # Apply antibody response with multiplicative modifiers
         ab_resp = effect.antibody_response
@@ -608,8 +647,8 @@ class SimulationEngine:
                 # Get per-category interferon modifier (% increase at max interferon)
                 ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
                 # Calculate actual modifier: scales linearly with interferon level
-                # At interferon 100000 and modifier 100%, this equals 1.0 (doubles the chance)
-                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100000.0)
+                # At INTERFERON_MAX and modifier 100%, this equals 1.0 (doubles the chance)
+                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / INTERFERON_MAX)
                 adjusted_chance = base_chance * (1 + actual_modifier)
                 # Cap at 100%
                 adjusted_chance = min(100.0, adjusted_chance)
@@ -648,7 +687,7 @@ class SimulationEngine:
             # Apply interferon effect (only affects intracellular locations)
             if location != CellLocation.EXTRACELLULAR.value and interferon_level > 0:
                 ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
-                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100000.0)
+                actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / INTERFERON_MAX)
                 adjusted_chance = base_chance * (1 + actual_modifier)
                 adjusted_chance = min(100.0, adjusted_chance)
             else:
@@ -741,7 +780,7 @@ class SimulationEngine:
         # Apply interferon effect
         if interferon_level > 0:
             ifn_modifier_percent = self.game_state.database.get_interferon_modifier(category)
-            actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / 100000.0)
+            actual_modifier = (ifn_modifier_percent / 100.0) * (interferon_level / INTERFERON_MAX)
             adjusted_chance = base_chance * (1 + actual_modifier)
             adjusted_chance = min(100.0, adjusted_chance)
         else:
@@ -835,26 +874,15 @@ class SimulationEngine:
 
     def _record_history(self):
         """Record current state for graphing."""
-        counts = {
-            'Virion': 0,
-            'RNA': 0,
-            'DNA': 0,
-            'Protein': 0,
-            'Antibodies': self.sim_state.antibody_active
-        }
+        counts = {group: 0 for group in POPULATION_GROUPS}
+        counts['Antibodies'] = self.sim_state.antibody_active
 
         for (entity_id, location), count in self.sim_state.entities.items():
             entity = self.game_state.database.get_entity(entity_id)
             if entity:
-                cat = entity.category
-                if cat == EntityCategory.VIRION.value or cat == EntityCategory.VIRAL_COMPLEX.value:
-                    counts['Virion'] += count
-                elif cat == EntityCategory.RNA.value:
-                    counts['RNA'] += count
-                elif cat == EntityCategory.DNA.value:
-                    counts['DNA'] += count
-                elif cat == EntityCategory.PROTEIN.value:
-                    counts['Protein'] += count
+                group = population_group(entity.category)
+                if group:
+                    counts[group] += count
 
         # Count polyproteins as proteins
         for poly, count in self.sim_state.polyproteins.items():
@@ -873,43 +901,20 @@ class SimulationEngine:
 
     def _check_conditions(self):
         """Check win/loss conditions."""
-        # Count total entities and virions
-        total = 0
-        virions = 0
-
-        for (entity_id, location), count in self.sim_state.entities.items():
-            total += count
-            entity = self.game_state.database.get_entity(entity_id)
-            if entity and entity.category in [EntityCategory.VIRION.value,
-                                               EntityCategory.VIRAL_COMPLEX.value]:
-                virions += count
-
-        # Also count new entities
-        for (entity_id, location), count in self.sim_state.new_entities.items():
-            total += count
-            entity = self.game_state.database.get_entity(entity_id)
-            if entity and entity.category in [EntityCategory.VIRION.value,
-                                               EntityCategory.VIRAL_COMPLEX.value]:
-                virions += count
-
-        # Also count polyproteins
-        total += sum(self.sim_state.polyproteins.values())
-        total += sum(self.sim_state.new_polyproteins.values())
+        total, virions = self.count_population()
 
         # Check extinction
         if total == 0:
             self.sim_state.is_ended = True
             self.sim_state.extinction = True
-            self.sim_state.is_running = False
             self.sim_state.log.append("\n=== EXTINCTION ===")
             self._emit(self.on_game_end)
             return
 
         # Check victory
-        if virions >= self.WIN_THRESHOLD:
+        if virions >= self.win_threshold:
             self.sim_state.is_ended = True
             self.sim_state.is_victory = True
-            self.sim_state.is_running = False
             self.sim_state.log.append(f"\n=== VICTORY === ({virions} virions)")
             self._emit(self.on_game_end)
             return

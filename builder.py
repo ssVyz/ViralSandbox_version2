@@ -1,12 +1,15 @@
 """
 Builder Module for Viral Sandbox.
 Where players manage genes and configure their virus.
+
+This module is the *view*: every rule and change goes through game_api.Builder.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, Callable
-from game_state import GameState, VirusConfig
-from models import Gene, Effect
+from game_api import (GameAPI, Blueprint, GenomeFit, InstalledItem, ItemKind,
+                      RoundReadiness)
+from models import Gene, Effect, EffectType
 
 # Color category mapping for gene name display
 GENE_COLOR_CATEGORY_COLORS = {
@@ -21,13 +24,14 @@ DEFAULT_GENE_COLOR = "#1a3a5c"  # dark navy blue
 class BuilderModule(tk.Toplevel):
     """Builder module window."""
 
-    def __init__(self, parent, game_state: GameState,
+    def __init__(self, parent, api: GameAPI,
                  on_play: Optional[Callable] = None,
                  on_quit: Optional[Callable] = None,
                  window_mode: str = "maximized"):
         super().__init__(parent)
 
-        self.game_state = game_state
+        self.api = api
+        self.builder = api.builder
         self.on_play_callback = on_play
         self.on_quit_callback = on_quit
 
@@ -41,8 +45,9 @@ class BuilderModule(tk.Toplevel):
         self.available_expanded = set()
         self.installed_expanded = set()
 
-        # Currently selected item
-        self.selected_item = None  # ('gene', id) or ('effect', id)
+        # Currently selected item: (kind, key) with kind 'gene', 'orf',
+        # 'terminator' (ItemKind values) or 'effect'
+        self.selected_item = None
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -190,7 +195,7 @@ class BuilderModule(tk.Toplevel):
         ttk.Label(options_frame, text="Terminator Chance:").grid(row=row, column=0, sticky='w', pady=2)
         term_chance_frame = ttk.Frame(options_frame)
         term_chance_frame.grid(row=row, column=1, sticky='w', pady=2)
-        self.terminator_chance_var = tk.StringVar(value=str(self.game_state.terminator_chance))
+        self.terminator_chance_var = tk.StringVar(value=str(self.builder.terminator_chance))
         self.terminator_chance_spin = ttk.Spinbox(
             term_chance_frame, textvariable=self.terminator_chance_var,
             from_=1, to=100, width=5, command=self._on_terminator_chance_change)
@@ -333,14 +338,14 @@ class BuilderModule(tk.Toplevel):
 
     def _update_status(self):
         """Update the status bar."""
-        self.ep_var.set(f"Evolution Points: {self.game_state.evolution_points}")
-        self.round_var.set(f"Round: {self.game_state.current_round}/{self.game_state.max_rounds}")
-        total_length = self.game_state.get_total_genome_length()
-        self.genome_var.set(f"Genome Length: {total_length:,} bp")
+        status = self.api.status()
+        self.ep_var.set(f"Evolution Points: {status.evolution_points}")
+        self.round_var.set(f"Round: {status.current_round}/{status.max_rounds}")
+        self.genome_var.set(f"Genome Length: {status.genome_length:,} bp")
 
     def _update_config_ui(self):
         """Update the configuration UI to match game state."""
-        config = self.game_state.pending_config
+        config = self.builder.config()
 
         self.nucleic_acid_var.set(config.nucleic_acid)
         self.strandedness_var.set(config.strandedness)
@@ -348,25 +353,25 @@ class BuilderModule(tk.Toplevel):
         self.virion_type_var.set(config.virion_type)
 
         # Update polarity visibility
-        self._update_polarity_state()
+        self._update_polarity_state(config.polarity_applies)
 
         # Update config status
-        if self.game_state.virus_config.is_locked:
-            self.config_status_var.set(f"Locked: {self.game_state.virus_config.get_genome_string()}")
+        if config.is_locked:
+            self.config_status_var.set(f"Locked: {config.locked_genome_string}")
         else:
             self.config_status_var.set("Not locked (using defaults)")
 
-        if self.game_state.has_pending_changes():
+        if config.has_pending_changes:
             self.config_status_var.set(self.config_status_var.get() + " - UNSAVED CHANGES")
 
         # Update lock button appearance based on whether locking is needed
-        cost = self.game_state.get_lock_cost()
+        cost = config.lock_cost
         if cost == 0:
             cost_text = "Free"
         else:
             cost_text = f"{cost} EP"
 
-        if self.game_state.needs_config_lock():
+        if config.needs_lock:
             self.lock_btn.configure(
                 text=f"Lock Configuration ({cost_text})",
                 bg='#ff9800', fg='white',
@@ -381,50 +386,43 @@ class BuilderModule(tk.Toplevel):
                 activebackground='SystemButtonFace', activeforeground='black'
             )
 
-    def _update_polarity_state(self):
-        """Enable/disable polarity options based on strandedness."""
-        state = 'normal' if self.strandedness_var.get() == 'single' else 'disabled'
+    def _update_polarity_state(self, polarity_applies: bool):
+        """Enable/disable polarity options (they only apply to single-stranded genomes)."""
+        state = 'normal' if polarity_applies else 'disabled'
         for child in self.polarity_frame.winfo_children():
             child.configure(state=state)
 
     def _on_terminator_chance_change(self):
         """Handle terminator chance change."""
         try:
-            value = int(self.terminator_chance_var.get())
-            value = max(1, min(100, value))
+            value = self.builder.set_terminator_chance(int(self.terminator_chance_var.get()))
         except ValueError:
-            value = 100
+            value = self.builder.terminator_chance  # Not a number - keep the current value
         self.terminator_chance_var.set(str(value))
-        self.game_state.terminator_chance = value
         self._update_genome_visual()
 
     def _on_config_change(self):
         """Handle configuration change."""
-        self._update_polarity_state()
-
-        # Update pending config
-        self.game_state.pending_config.nucleic_acid = self.nucleic_acid_var.get()
-        self.game_state.pending_config.strandedness = self.strandedness_var.get()
-        self.game_state.pending_config.polarity = self.polarity_var.get()
-        self.game_state.pending_config.virion_type = self.virion_type_var.get()
+        success, message = self.builder.set_config(
+            nucleic_acid=self.nucleic_acid_var.get(),
+            strandedness=self.strandedness_var.get(),
+            polarity=self.polarity_var.get(),
+            virion_type=self.virion_type_var.get(),
+        )
+        if not success:
+            messagebox.showerror("Invalid Configuration", message)
 
         self._update_config_ui()
         self._update_genome_visual()
 
     def _lock_config(self):
         """Lock in the current configuration."""
-        can_lock, reason = self.game_state.can_lock_config()
+        can_lock, reason = self.builder.can_lock_config()
         if not can_lock:
             messagebox.showerror("Cannot Lock", reason)
             return
 
-        # Update pending config from UI
-        self.game_state.pending_config.nucleic_acid = self.nucleic_acid_var.get()
-        self.game_state.pending_config.strandedness = self.strandedness_var.get()
-        self.game_state.pending_config.polarity = self.polarity_var.get()
-        self.game_state.pending_config.virion_type = self.virion_type_var.get()
-
-        success, message = self.game_state.lock_config()
+        success, message = self.builder.lock_config()
         if success:
             self._refresh_all()
             messagebox.showinfo("Configuration Locked", message)
@@ -433,15 +431,15 @@ class BuilderModule(tk.Toplevel):
 
     def _reset_config(self):
         """Reset pending config to locked config."""
-        self.game_state.reset_pending_config()
+        self.builder.reset_config()
         self._update_config_ui()
         self._update_genome_visual()
 
     def _update_genome_visual(self):
         """Update the genome visualization."""
-        config = self.game_state.pending_config
-        genome_str = config.get_genome_string()
-        total_length = self.game_state.get_total_genome_length()
+        config = self.builder.config()
+        genome_str = config.genome_string
+        total_length = self.api.status().genome_length
 
         # Update the text display
         if total_length > 0:
@@ -542,12 +540,13 @@ class BuilderModule(tk.Toplevel):
         x_pos = left_margin
         color_idx = 0
 
-        for item in self.game_state.installed_genes:
-            if self.game_state.is_terminator(item):
+        for installed in self.builder.installed():
+            item = installed.key
+            if installed.kind is ItemKind.TERMINATOR:
                 # Track terminator position (at current x position)
                 terminator_positions[item] = x_pos
-            elif not self.game_state.is_orf(item):
-                gene = self.game_state.get_gene(item)
+            elif installed.kind is ItemKind.GENE:
+                gene = installed.gene
                 if gene:
                     # Calculate proportional width
                     gene_width = int((gene.length / total_length) * available_width)
@@ -595,15 +594,15 @@ class BuilderModule(tk.Toplevel):
                     color_idx += 1
 
         # Draw ORF indicators above the genome
-        orf_structure = self.game_state.get_orf_structure()
+        orf_spans = self.builder.orf_spans()
         orf_colors = ['#cc5500', '#0055cc', '#00cc55', '#cc0055', '#5500cc']
 
-        for orf_idx, orf_info in enumerate(orf_structure):
-            orf_name = orf_info['orf']
-            orf_genes = orf_info['genes']
+        for orf_idx, span in enumerate(orf_spans):
+            orf_name = span.name
+            orf_genes = span.gene_ids
 
             if not orf_genes:
-                continue  # Skip ORFs with no genes
+                continue  # Only reached through terminator readthrough - drawn as a ghost below
 
             # Find the x positions for this ORF's genes
             orf_x_start = None
@@ -653,63 +652,54 @@ class BuilderModule(tk.Toplevel):
                     fill=orf_color
                 )
 
-        # Draw ghost ORF extensions when terminator_chance < 100
-        if self.game_state.terminator_chance < 100 and terminator_positions:
-            ghost_structure = self.game_state.get_orf_ghost_structure()
-            # Build a lookup from orf_name to normal structure for comparison
-            normal_genes_by_orf = {s['orf']: set(s['genes']) for s in orf_structure}
+        # Draw ghost ORF extensions: genes reached only when a terminator is read through
+        for orf_idx, span in enumerate(orf_spans):
+            normal_genes = span.gene_ids
+            extra_genes = span.readthrough_gene_ids
+            if not extra_genes:
+                continue
 
-            for orf_idx, ghost_info in enumerate(ghost_structure):
-                ghost_name = ghost_info['orf']
-                ghost_genes = ghost_info['genes']
-                normal_genes = normal_genes_by_orf.get(ghost_name, set())
+            # Find x range of the ghost extension
+            ghost_x_start = None
+            ghost_x_end = None
+            for gene_id in extra_genes:
+                if gene_id in gene_positions:
+                    x_start, x_end, _ = gene_positions[gene_id]
+                    if ghost_x_start is None or x_start < ghost_x_start:
+                        ghost_x_start = x_start
+                    if ghost_x_end is None or x_end > ghost_x_end:
+                        ghost_x_end = x_end
 
-                # Find genes that are only in the ghost (beyond terminator)
-                extra_genes = [g for g in ghost_genes if g not in normal_genes]
-                if not extra_genes:
-                    continue
+            if ghost_x_start is None or ghost_x_end is None:
+                continue
 
-                # Find x range of the ghost extension
-                ghost_x_start = None
-                ghost_x_end = None
-                for gene_id in extra_genes:
-                    if gene_id in gene_positions:
-                        x_start, x_end, _ = gene_positions[gene_id]
-                        if ghost_x_start is None or x_start < ghost_x_start:
-                            ghost_x_start = x_start
-                        if ghost_x_end is None or x_end > ghost_x_end:
-                            ghost_x_end = x_end
+            # Find where the solid bracket ended (at the terminator)
+            # Use the normal ORF's last gene end position
+            solid_x_end = None
+            for gene_id in (normal_genes if normal_genes else []):
+                if gene_id in gene_positions:
+                    _, x_end, _ = gene_positions[gene_id]
+                    if solid_x_end is None or x_end > solid_x_end:
+                        solid_x_end = x_end
 
-                if ghost_x_start is None or ghost_x_end is None:
-                    continue
+            # Ghost starts from the solid end (or from the ghost start if no solid genes)
+            ghost_line_start = solid_x_end if solid_x_end else ghost_x_start
 
-                # Find where the solid bracket ended (at the terminator)
-                # Use the normal ORF's last gene end position
-                solid_x_end = None
-                for gene_id in (normal_genes if normal_genes else []):
-                    if gene_id in gene_positions:
-                        _, x_end, _ = gene_positions[gene_id]
-                        if solid_x_end is None or x_end > solid_x_end:
-                            solid_x_end = x_end
+            orf_color = orf_colors[orf_idx % len(orf_colors)]
+            orf_y = 12 + (orf_idx % 2) * 12
 
-                # Ghost starts from the solid end (or from the ghost start if no solid genes)
-                ghost_line_start = solid_x_end if solid_x_end else ghost_x_start
-
-                orf_color = orf_colors[orf_idx % len(orf_colors)]
-                orf_y = 12 + (orf_idx % 2) * 12
-
-                # Draw dashed ghost bracket
-                self.genome_canvas.create_line(
-                    ghost_line_start, orf_y,
-                    ghost_x_end, orf_y,
-                    fill=orf_color, width=1, dash=(4, 4)
-                )
-                # Ghost end cap
-                self.genome_canvas.create_line(
-                    ghost_x_end, orf_y - 3,
-                    ghost_x_end, orf_y + 3,
-                    fill=orf_color, width=1, dash=(2, 2)
-                )
+            # Draw dashed ghost bracket
+            self.genome_canvas.create_line(
+                ghost_line_start, orf_y,
+                ghost_x_end, orf_y,
+                fill=orf_color, width=1, dash=(4, 4)
+            )
+            # Ghost end cap
+            self.genome_canvas.create_line(
+                ghost_x_end, orf_y - 3,
+                ghost_x_end, orf_y + 3,
+                fill=orf_color, width=1, dash=(2, 2)
+            )
 
         # Draw Terminator indicators (vertical red lines)
         for term_name, term_x in terminator_positions.items():
@@ -765,10 +755,8 @@ class BuilderModule(tk.Toplevel):
         for widget in self.available_frame.winfo_children():
             widget.destroy()
 
-        for gene_id in self.game_state.available_genes:
-            gene = self.game_state.get_gene(gene_id)
-            if gene:
-                self._create_gene_entry(self.available_frame, gene, 'available')
+        for gene in self.builder.hand():
+            self._create_gene_entry(self.available_frame, gene, 'available')
 
     def _update_installed_genes(self):
         """Update the installed genes tree view."""
@@ -776,18 +764,20 @@ class BuilderModule(tk.Toplevel):
         for widget in self.installed_frame.winfo_children():
             widget.destroy()
 
-        for idx, item in enumerate(self.game_state.installed_genes):
-            if self.game_state.is_orf(item):
+        for item in self.builder.installed():
+            if item.kind is ItemKind.ORF:
                 self._create_orf_entry(self.installed_frame, item)
-            elif self.game_state.is_terminator(item):
-                self._create_terminator_entry(self.installed_frame, item)
+            elif item.kind is ItemKind.TERMINATOR:
+                self._create_terminator_entry(self.installed_frame, item.key)
             else:
-                gene = self.game_state.get_gene(item)
-                if gene:
-                    self._create_gene_entry(self.installed_frame, gene, 'installed', installed_idx=idx)
+                self._create_gene_entry(self.installed_frame, item.gene, 'installed', installed=item)
 
-    def _create_gene_entry(self, parent, gene: Gene, panel: str, installed_idx: int = -1):
-        """Create a gene entry with expandable effects."""
+    def _create_gene_entry(self, parent, gene: Gene, panel: str,
+                           installed: Optional[InstalledItem] = None):
+        """Create a gene entry with expandable effects.
+
+        ``installed`` is the genome entry for genes in the installed panel.
+        """
         expanded_set = self.available_expanded if panel == 'available' else self.installed_expanded
         is_expanded = gene.id in expanded_set
 
@@ -808,19 +798,14 @@ class BuilderModule(tk.Toplevel):
                                command=lambda: self._toggle_gene(gene.id, panel))
         expand_btn.pack(side=tk.LEFT)
 
-        # Check if gene is genome-incompatible (only for installed panel)
-        is_genome_incompatible = (panel == 'installed' and
-                                   not self.game_state.is_gene_genome_compatible(gene))
-
-        # Check if domain gene is inactive (only for installed panel)
-        is_domain_inactive = (panel == 'installed' and installed_idx >= 0 and
-                              not self.game_state.is_domain_gene_active_at(installed_idx))
+        # Check if gene is genome-incompatible or an inactive domain (installed panel only)
+        is_genome_incompatible = installed is not None and not installed.genome_compatible
+        is_domain_inactive = installed is not None and not installed.domain_active
 
         # Determine colors based on state
         is_inactive = is_genome_incompatible or is_domain_inactive
         font_style = ('TkDefaultFont', 10, 'italic') if is_inactive else None
-        is_unaffordable = (panel == 'available' and
-                           gene.install_cost > self.game_state.evolution_points)
+        is_unaffordable = panel == 'available' and not self.builder.can_afford(gene.id)
         is_error_state = is_unaffordable or is_inactive
 
         if is_selected:
@@ -852,9 +837,7 @@ class BuilderModule(tk.Toplevel):
         if is_genome_incompatible:
             genome_indicator = " - Wrong genome type"
         elif is_domain_inactive:
-            domain_entity = self.game_state.database.get_entity(gene.domain_entity_id)
-            domain_type_name = domain_entity.name if domain_entity else "Unknown"
-            domain_indicator = f" - No adjacent {domain_type_name}"
+            domain_indicator = f" - No adjacent {installed.domain_partner}"
         suffix_text = f" [{gene.install_cost} EP]{utr_indicator}{poly_indicator}{domain_tag}{genome_indicator}{domain_indicator}"
 
         # Create three labels: prefix (set name), gene name (colored), suffix (cost/indicators)
@@ -889,7 +872,7 @@ class BuilderModule(tk.Toplevel):
             effects_frame.pack(fill=tk.X, padx=20, pady=1)
 
             for effect_id in gene.effect_ids:
-                effect = self.game_state.get_effect(effect_id)
+                effect = self.api.get_effect(effect_id)
                 if effect:
                     effect_entry = tk.Frame(effects_frame)
                     if is_selected:
@@ -909,8 +892,9 @@ class BuilderModule(tk.Toplevel):
                     effect_label.pack(side=tk.LEFT, padx=5)
                     effect_label.bind("<Button-1>", lambda e, ef=effect: self._select_effect(ef))
 
-    def _create_orf_entry(self, parent, orf_name: str):
+    def _create_orf_entry(self, parent, item: InstalledItem):
         """Create an ORF entry in the installed list."""
+        orf_name = item.key
         # Check if this ORF is selected
         is_selected = (self.selected_item and
                        self.selected_item[0] == 'orf' and
@@ -937,12 +921,7 @@ class BuilderModule(tk.Toplevel):
         orf_label.bind("<Button-1>", lambda e, name=orf_name: self._select_orf(name))
 
         # Show genes covered by this ORF
-        orf_structure = self.game_state.get_orf_structure()
-        genes_under_orf = []
-        for orf_info in orf_structure:
-            if orf_info['orf'] == orf_name:
-                genes_under_orf = orf_info['genes']
-                break
+        genes_under_orf = item.orf_gene_ids
 
         if genes_under_orf:
             count_label = tk.Label(orf_frame, text=f"({len(genes_under_orf)} genes)",
@@ -1026,18 +1005,17 @@ class BuilderModule(tk.Toplevel):
         self.details_text.insert(tk.END, "Open Reading Frame\n", "value")
 
         # Find genes under this ORF
-        orf_structure = self.game_state.get_orf_structure()
-        genes_under_orf = []
-        for orf_info in orf_structure:
-            if orf_info['orf'] == orf_name:
-                genes_under_orf = orf_info['genes']
+        genes_under_orf = ()
+        for item in self.builder.installed():
+            if item.key == orf_name:
+                genes_under_orf = item.orf_gene_ids
                 break
 
         self.details_text.insert(tk.END, f"\nGenes in this ORF ({len(genes_under_orf)}):\n", "header")
         if genes_under_orf:
             total_length = 0
             for gene_id in genes_under_orf:
-                gene = self.game_state.get_gene(gene_id)
+                gene = self.api.get_gene(gene_id)
                 if gene:
                     self.details_text.insert(tk.END, f"  - {gene.name} ({gene.length:,} bp)\n", "value")
                     total_length += gene.length
@@ -1070,20 +1048,13 @@ class BuilderModule(tk.Toplevel):
 
     def _update_move_buttons(self):
         """Update move button states based on selected item."""
-        # Default: enable both buttons
+        # Nothing selected: enable both buttons (they explain what to select)
         can_move = True
 
         if self.selected_item:
             item_type, item_id = self.selected_item
-            # Check if selected item is a UTR gene
-            if item_type == 'gene':
-                gene = self.game_state.get_gene(item_id)
-                if gene and gene.is_utr:
-                    can_move = False
-            # Effects can't be moved
-            elif item_type == 'effect':
-                can_move = False
-            # ORFs and terminators can be moved (no special restrictions)
+            # Effects and genes in hand can't be moved; UTR genes are fixed at the 5' end
+            can_move = item_type != 'effect' and self.builder.is_movable(item_id)
 
         state = 'normal' if can_move else 'disabled'
         self.move_up_btn.config(state=state)
@@ -1115,11 +1086,11 @@ class BuilderModule(tk.Toplevel):
             messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator.")
             return
 
-        if item_id not in self.game_state.installed_genes:
+        if not self.builder.is_installed(item_id):
             messagebox.showinfo("Select Item", "Please select an item from installed genes.")
             return
 
-        moved, rename_map = self.game_state.move_item_up(item_id)
+        moved, rename_map = self.builder.move_item_up(item_id)
         if moved:
             # Update selection if the selected marker was renamed
             if item_id in rename_map:
@@ -1138,11 +1109,11 @@ class BuilderModule(tk.Toplevel):
             messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator.")
             return
 
-        if item_id not in self.game_state.installed_genes:
+        if not self.builder.is_installed(item_id):
             messagebox.showinfo("Select Item", "Please select an item from installed genes.")
             return
 
-        moved, rename_map = self.game_state.move_item_down(item_id)
+        moved, rename_map = self.builder.move_item_down(item_id)
         if moved:
             # Update selection if the selected marker was renamed
             if item_id in rename_map:
@@ -1152,18 +1123,18 @@ class BuilderModule(tk.Toplevel):
 
     def _add_orf(self):
         """Add a new ORF to installed genes."""
-        can_install, reason = self.game_state.can_install_orf()
+        can_install, reason = self.builder.can_add_orf()
         if not can_install:
             messagebox.showerror("Cannot Add ORF", reason)
             return
 
-        cost = self.game_state.get_orf_cost()
+        cost = self.builder.orf_cost()
         if cost > 0:
             if not messagebox.askyesno("Add ORF",
                     f"Add a new ORF for {cost} EP?"):
                 return
 
-        success, message = self.game_state.install_orf()
+        success, message = self.builder.add_orf()
         if success:
             self._refresh_all()
         else:
@@ -1171,18 +1142,18 @@ class BuilderModule(tk.Toplevel):
 
     def _add_terminator(self):
         """Add a new Terminator to installed genes."""
-        can_install, reason = self.game_state.can_install_terminator()
+        can_install, reason = self.builder.can_add_terminator()
         if not can_install:
             messagebox.showerror("Cannot Add Terminator", reason)
             return
 
-        cost = self.game_state.terminator_cost
+        cost = self.builder.terminator_cost
         if not messagebox.askyesno("Add Terminator",
                 f"Add a new Terminator for {cost} EP?\n\n"
                 "Terminators mark the end of ORFs. ORFs will stop at the next terminator."):
             return
 
-        success, message = self.game_state.install_terminator()
+        success, message = self.builder.add_terminator()
         if success:
             self._refresh_all()
         else:
@@ -1195,44 +1166,22 @@ class BuilderModule(tk.Toplevel):
             return
 
         item_type, item_id = self.selected_item
+        labels = {'gene': "a gene", 'orf': "an ORF", 'terminator': "a Terminator"}
 
-        if item_type == 'orf':
-            if item_id not in self.game_state.installed_genes:
-                messagebox.showinfo("Select ORF", "Please select an ORF from installed genes.")
-                return
-
-            success, message, _rename_map = self.game_state.remove_orf(item_id)
-            if success:
-                self.selected_item = None
-                self._refresh_all()
-            else:
-                messagebox.showerror("Cannot Remove", message)
-
-        elif item_type == 'terminator':
-            if item_id not in self.game_state.installed_genes:
-                messagebox.showinfo("Select Terminator", "Please select a Terminator from installed genes.")
-                return
-
-            success, message, _rename_map = self.game_state.remove_terminator(item_id)
-            if success:
-                self.selected_item = None
-                self._refresh_all()
-            else:
-                messagebox.showerror("Cannot Remove", message)
-
-        elif item_type == 'gene':
-            if item_id not in self.game_state.installed_genes:
-                messagebox.showinfo("Select Gene", "Please select a gene from installed genes.")
-                return
-
-            success, message = self.game_state.remove_gene(item_id)
-            if success:
-                self.selected_item = None
-                self._refresh_all()
-            else:
-                messagebox.showerror("Cannot Remove", message)
-        else:
+        if item_type not in labels:
             messagebox.showinfo("Select Item", "Please select an installed gene, ORF, or Terminator.")
+            return
+
+        if not self.builder.is_installed(item_id):
+            messagebox.showinfo("Select Item", f"Please select {labels[item_type]} from installed genes.")
+            return
+
+        success, message = self.builder.remove_item(item_id)
+        if success:
+            self.selected_item = None
+            self._refresh_all()
+        else:
+            messagebox.showerror("Cannot Remove", message)
 
     def _show_gene_details(self, gene: Gene):
         """Show gene details in the details panel."""
@@ -1255,7 +1204,7 @@ class BuilderModule(tk.Toplevel):
             self.details_text.insert(tk.END, f"Polymerase: ", "header")
             self.details_text.insert(tk.END, "Yes (only one allowed)\n", "value")
 
-        gene_type_name = self.game_state.database.get_gene_type_name(gene)
+        gene_type_name = self.api.gene_type_name(gene.id)
         if gene_type_name != "None":
             self.details_text.insert(tk.END, f"Enables Type: ", "header")
             self.details_text.insert(tk.END, f"{gene_type_name}\n", "value")
@@ -1266,7 +1215,7 @@ class BuilderModule(tk.Toplevel):
 
         self.details_text.insert(tk.END, f"\nEffects ({len(gene.effect_ids)}):\n", "header")
         for effect_id in gene.effect_ids:
-            effect = self.game_state.get_effect(effect_id)
+            effect = self.api.get_effect(effect_id)
             if effect:
                 self.details_text.insert(tk.END, f"  - {effect.name} ({effect.effect_type})\n", "value")
 
@@ -1292,14 +1241,14 @@ class BuilderModule(tk.Toplevel):
             self.details_text.insert(tk.END, f"\nDescription:\n", "header")
             self.details_text.insert(tk.END, f"{effect.description}\n", "value")
 
-        if effect.effect_type == "Transition":
+        if effect.effect_type == EffectType.TRANSITION.value:
             self.details_text.insert(tk.END, f"\nChance: ", "header")
             self.details_text.insert(tk.END, f"{effect.chance}%\n", "value")
 
             if effect.inputs:
                 self.details_text.insert(tk.END, f"\nInputs:\n", "header")
                 for inp in effect.inputs:
-                    entity = self.game_state.database.get_entity(inp.get('entity_id', 0))
+                    entity = self.api.get_entity(inp.get('entity_id', 0))
                     name = entity.name if entity else f"ID:{inp.get('entity_id')}"
                     consumed = "consumed" if inp.get('consumed', True) else "kept"
                     self.details_text.insert(tk.END,
@@ -1312,7 +1261,7 @@ class BuilderModule(tk.Toplevel):
                         self.details_text.insert(tk.END,
                             f"  Unpack genome @ {out.get('location')}\n", "value")
                     else:
-                        entity = self.game_state.database.get_entity(out.get('entity_id', 0))
+                        entity = self.api.get_entity(out.get('entity_id', 0))
                         name = entity.name if entity else f"ID:{out.get('entity_id')}"
                         self.details_text.insert(tk.END,
                             f"  {out.get('amount', 1)}x {name} @ {out.get('location')}\n", "value")
@@ -1325,10 +1274,10 @@ class BuilderModule(tk.Toplevel):
                 self.details_text.insert(tk.END, f"Antibody Response: ", "header")
                 self.details_text.insert(tk.END, f"{effect.antibody_response}\n", "value")
 
-        elif effect.effect_type == "Modify effect":
+        elif effect.effect_type == EffectType.MODIFY_EFFECT.value:
             self.details_text.insert(tk.END, f"\nTarget: ", "header")
             if effect.target_effect_id:
-                target = self.game_state.get_effect(effect.target_effect_id)
+                target = self.api.get_effect(effect.target_effect_id)
                 target_name = target.name if target else f"Effect ID {effect.target_effect_id}"
                 self.details_text.insert(tk.END, f"{target_name}\n", "value")
             elif effect.target_category:
@@ -1338,8 +1287,8 @@ class BuilderModule(tk.Toplevel):
                 self.details_text.insert(tk.END, f"Chance Modifier: ", "header")
                 self.details_text.insert(tk.END, f"{effect.chance_modifier:+}%\n", "value")
 
-        elif effect.effect_type == "Change location":
-            entity = self.game_state.database.get_entity(effect.affected_entity_id) if effect.affected_entity_id else None
+        elif effect.effect_type == EffectType.CHANGE_LOCATION.value:
+            entity = self.api.get_entity(effect.affected_entity_id) if effect.affected_entity_id else None
             if entity:
                 self.details_text.insert(tk.END, f"\nAffects: ", "header")
                 self.details_text.insert(tk.END, f"{entity.name}\n", "value")
@@ -1360,60 +1309,59 @@ class BuilderModule(tk.Toplevel):
             return
 
         gene_id = self.selected_item[1]
-        if gene_id not in self.game_state.available_genes:
+        if not self.builder.in_hand(gene_id):
             messagebox.showinfo("Select Gene", "Please select a gene from available genes.")
             return
 
-        gene = self.game_state.get_gene(gene_id)
+        gene = self.api.get_gene(gene_id)
+        fit = self.builder.genome_fit(gene_id)
 
         # Check if gene requires a specific genome type
-        if gene and gene.required_genome_type:
-            current_genome = self.game_state.virus_config.get_genome_string()
-
-            if not self.game_state.virus_config.is_locked:
-                # Genome not locked - prompt user to lock it
-                lock_cost = self.game_state.config_lock_cost
-                result = messagebox.askyesnocancel(
-                    "Genome Type Required",
-                    f"This gene requires genome type: {gene.required_genome_type}\n\n"
-                    f"Your current genome configuration is: {current_genome}\n\n"
-                    f"Would you like to lock your genome configuration for {lock_cost} EP?\n\n"
-                    f"Yes = Lock current config ({current_genome}) and install gene\n"
-                    f"No = Install gene without locking (gene will be inactive)\n"
-                    f"Cancel = Don't install"
-                )
-                if result is None:
-                    return  # Cancel
-                elif result is True:
-                    # Lock configuration first
-                    success, msg = self.game_state.lock_config()
-                    if not success:
-                        messagebox.showerror("Cannot Lock", msg)
-                        return
-                    self._refresh_all()
-                    # Re-check compatibility after locking
-                    current_genome = self.game_state.virus_config.get_genome_string()
-                    if current_genome != gene.required_genome_type:
-                        messagebox.showwarning(
-                            "Genome Mismatch",
-                            f"Your genome ({current_genome}) doesn't match the gene's requirement ({gene.required_genome_type}).\n\n"
-                            f"The gene will be installed but its effects will be inactive."
-                        )
-                # If No, proceed with installation (gene will be inactive)
-
-            elif current_genome != gene.required_genome_type:
-                # Genome is locked to a different type
-                result = messagebox.askyesno(
-                    "Genome Type Mismatch",
-                    f"This gene requires genome type: {gene.required_genome_type}\n"
-                    f"Your genome is locked to: {current_genome}\n\n"
-                    f"The gene can still be installed but its effects will be inactive.\n\n"
-                    f"Install anyway?"
-                )
-                if not result:
+        if fit is GenomeFit.UNLOCKED:
+            # Genome not locked - prompt user to lock the configuration shown
+            config = self.builder.config()
+            cost_text = "free" if config.lock_cost == 0 else f"{config.lock_cost} EP"
+            result = messagebox.askyesnocancel(
+                "Genome Type Required",
+                f"This gene requires genome type: {gene.required_genome_type}\n\n"
+                f"Your current genome configuration is: {config.genome_string}\n\n"
+                f"Would you like to lock your genome configuration ({cost_text})?\n\n"
+                f"Yes = Lock current config ({config.genome_string}) and install gene\n"
+                f"No = Install gene without locking (gene will be inactive)\n"
+                f"Cancel = Don't install"
+            )
+            if result is None:
+                return  # Cancel
+            elif result is True:
+                # Lock configuration first
+                success, msg = self.builder.lock_config()
+                if not success:
+                    messagebox.showerror("Cannot Lock", msg)
                     return
+                self._refresh_all()
+                # Re-check compatibility after locking
+                if self.builder.genome_fit(gene_id) is GenomeFit.MISMATCH:
+                    messagebox.showwarning(
+                        "Genome Mismatch",
+                        f"Your genome ({self.builder.config().locked_genome_string}) doesn't match "
+                        f"the gene's requirement ({gene.required_genome_type}).\n\n"
+                        f"The gene will be installed but its effects will be inactive."
+                    )
+            # If No, proceed with installation (gene will be inactive)
 
-        success, message = self.game_state.install_gene(gene_id)
+        elif fit is GenomeFit.MISMATCH:
+            # Genome is locked to a different type
+            result = messagebox.askyesno(
+                "Genome Type Mismatch",
+                f"This gene requires genome type: {gene.required_genome_type}\n"
+                f"Your genome is locked to: {self.builder.config().locked_genome_string}\n\n"
+                f"The gene can still be installed but its effects will be inactive.\n\n"
+                f"Install anyway?"
+            )
+            if not result:
+                return
+
+        success, message = self.builder.install_gene(gene_id)
         if success:
             self.selected_item = None
             self._refresh_all()
@@ -1422,57 +1370,51 @@ class BuilderModule(tk.Toplevel):
 
     def _show_blueprint(self):
         """Show the virus blueprint popup."""
-        BlueprintDialog(self, self.game_state)
+        BlueprintDialog(self, self.builder.blueprint())
 
     def _on_play_round(self):
-        """Start the play round."""
-        if not self.game_state.installed_genes:
+        """Start the play round once the virus is ready for one."""
+        readiness = self.api.round_readiness()
+
+        if readiness is RoundReadiness.NO_GENES:
             messagebox.showwarning("No Genes", "You need to install at least one gene before playing.")
             return
 
-        if self.game_state.needs_config_lock():
-            cost = self.game_state.get_lock_cost()
-            if not self.game_state.virus_config.is_locked:
-                # Never locked - must lock before playing
-                cost_text = "free" if cost == 0 else f"{cost} EP"
-                result = messagebox.askyesno(
-                    "Lock Configuration",
-                    "You must lock your genome and envelope configuration before playing.\n\n"
-                    f"Lock current configuration ({cost_text})?"
-                )
-                if result:
-                    # Sync pending config from UI
-                    self.game_state.pending_config.nucleic_acid = self.nucleic_acid_var.get()
-                    self.game_state.pending_config.strandedness = self.strandedness_var.get()
-                    self.game_state.pending_config.polarity = self.polarity_var.get()
-                    self.game_state.pending_config.virion_type = self.virion_type_var.get()
+        if readiness is RoundReadiness.CONFIG_NOT_LOCKED:
+            # Never locked - must lock before playing
+            cost = self.builder.config().lock_cost
+            cost_text = "free" if cost == 0 else f"{cost} EP"
+            result = messagebox.askyesno(
+                "Lock Configuration",
+                "You must lock your genome and envelope configuration before playing.\n\n"
+                f"Lock current configuration ({cost_text})?"
+            )
+            if not result:
+                return
+            success, msg = self.builder.lock_config()
+            if not success:
+                messagebox.showerror("Error", msg)
+                return
+            self._refresh_all()
 
-                    success, msg = self.game_state.lock_config()
-                    if not success:
-                        messagebox.showerror("Error", msg)
-                        return
-                    self._refresh_all()
-                else:
+        elif readiness is RoundReadiness.CONFIG_CHANGES_PENDING:
+            cost_text = f"{self.builder.config().lock_cost} EP"
+            result = messagebox.askyesnocancel(
+                "Unsaved Config",
+                "You have unsaved configuration changes.\n\n"
+                f"Yes = Lock changes ({cost_text})\n"
+                "No = Discard changes\n"
+                "Cancel = Go back"
+            )
+            if result is True:
+                success, msg = self.builder.lock_config()
+                if not success:
+                    messagebox.showerror("Error", msg)
                     return
+            elif result is None:
+                return
             else:
-                # Has pending changes
-                cost_text = f"{cost} EP"
-                result = messagebox.askyesnocancel(
-                    "Unsaved Config",
-                    "You have unsaved configuration changes.\n\n"
-                    f"Yes = Lock changes ({cost_text})\n"
-                    "No = Discard changes\n"
-                    "Cancel = Go back"
-                )
-                if result is True:
-                    success, msg = self.game_state.lock_config()
-                    if not success:
-                        messagebox.showerror("Error", msg)
-                        return
-                elif result is None:
-                    return
-                else:
-                    self.game_state.reset_pending_config()
+                self.builder.reset_config()
 
         if self.on_play_callback:
             self.on_play_callback()
@@ -1481,9 +1423,9 @@ class BuilderModule(tk.Toplevel):
 class BlueprintDialog(tk.Toplevel):
     """Dialog showing the virus blueprint."""
 
-    def __init__(self, parent, game_state: GameState):
+    def __init__(self, parent, blueprint: Blueprint):
         super().__init__(parent)
-        self.game_state = game_state
+        self.blueprint = blueprint
 
         self.title("Virus Blueprint")
         self.geometry("600x700")
@@ -1523,84 +1465,69 @@ class BlueprintDialog(tk.Toplevel):
 
     def _populate(self):
         """Populate the blueprint text."""
-        gs = self.game_state
-        config = gs.virus_config
+        bp = self.blueprint
 
         # Virus Configuration
         self.text.insert(tk.END, "VIRUS CONFIGURATION\n", "section")
         self.text.insert(tk.END, "=" * 40 + "\n\n")
 
         self.text.insert(tk.END, "Genome Type: ", "header")
-        self.text.insert(tk.END, f"{config.get_genome_string()}\n", "value")
+        self.text.insert(tk.END, f"{bp.genome_string}\n", "value")
 
         self.text.insert(tk.END, "Virion Type: ", "header")
-        self.text.insert(tk.END, f"{config.virion_type}\n", "value")
+        self.text.insert(tk.END, f"{bp.virion_type}\n", "value")
 
         # Show genome entities
-        genome_ids = config.get_genome_entity_ids()
         self.text.insert(tk.END, "Genome Entities: ", "header")
-        genome_names = []
-        for gid in genome_ids:
-            entity = gs.database.get_entity(gid)
-            if entity:
-                genome_names.append(entity.name)
-        self.text.insert(tk.END, f"{', '.join(genome_names)}\n", "value")
+        self.text.insert(tk.END, f"{', '.join(bp.genome_entity_names)}\n", "value")
 
         self.text.insert(tk.END, "Configuration Locked: ", "header")
-        self.text.insert(tk.END, f"{'Yes' if config.is_locked else 'No'}\n\n", "value")
+        self.text.insert(tk.END, f"{'Yes' if bp.is_locked else 'No'}\n\n", "value")
 
         # Genome
         self.text.insert(tk.END, "GENOME\n", "section")
         self.text.insert(tk.END, "=" * 40 + "\n\n")
 
         self.text.insert(tk.END, "Total Length: ", "header")
-        self.text.insert(tk.END, f"{gs.get_total_genome_length():,} bp\n\n", "value")
+        self.text.insert(tk.END, f"{bp.total_length:,} bp\n\n", "value")
 
-        # Count actual genes (not ORFs or terminators)
-        gene_count = sum(1 for item in gs.installed_genes if not gs.is_marker(item))
-        orf_count = gs.get_installed_orf_count()
-        term_count = gs.get_installed_terminator_count()
+        genes = {item.key: item.gene for item in bp.items if item.kind is ItemKind.GENE}
 
         # ORF Structure
-        orf_structure = gs.get_orf_structure()
-        if orf_structure:
-            self.text.insert(tk.END, f"ORF Structure ({len(orf_structure)} ORFs with genes):\n", "header")
-            for orf_info in orf_structure:
-                orf_name = orf_info['orf']
-                orf_genes = orf_info['genes']
-                orf_length = sum(gs.get_gene(gid).length for gid in orf_genes if gs.get_gene(gid))
-                self.text.insert(tk.END, f"\n  {orf_name} ({orf_length:,} bp):\n", "value")
-                for gene_id in orf_genes:
-                    gene = gs.get_gene(gene_id)
-                    if gene:
-                        self.text.insert(tk.END, f"    - ({gene.set_name}) {gene.name} [{gene.length:,} bp]\n", "value")
+        if bp.orf_spans:
+            self.text.insert(tk.END, f"ORF Structure ({len(bp.orf_spans)} ORFs with genes):\n", "header")
+            for span in bp.orf_spans:
+                orf_genes = [genes[gid] for gid in span.gene_ids if gid in genes]
+                orf_length = sum(gene.length for gene in orf_genes)
+                self.text.insert(tk.END, f"\n  {span.name} ({orf_length:,} bp):\n", "value")
+                for gene in orf_genes:
+                    self.text.insert(tk.END, f"    - ({gene.set_name}) {gene.name} [{gene.length:,} bp]\n", "value")
             self.text.insert(tk.END, "\n")
 
         # Installed Genes (flat list)
-        self.text.insert(tk.END, f"Installed Genes ({gene_count} genes, {orf_count} ORFs, {term_count} Terminators):\n", "header")
-        for item in gs.installed_genes:
-            if gs.is_orf(item):
-                self.text.insert(tk.END, f"  [{item}]\n", "value")
-            elif gs.is_terminator(item):
-                self.text.insert(tk.END, f"  [STOP: {item}]\n", "value")
+        self.text.insert(tk.END, f"Installed Genes ({bp.gene_count} genes, {bp.orf_count} ORFs, "
+                                 f"{bp.terminator_count} Terminators):\n", "header")
+        for item in bp.items:
+            if item.kind is ItemKind.ORF:
+                self.text.insert(tk.END, f"  [{item.key}]\n", "value")
+            elif item.kind is ItemKind.TERMINATOR:
+                self.text.insert(tk.END, f"  [STOP: {item.key}]\n", "value")
             else:
-                gene = gs.get_gene(item)
-                if gene:
-                    self.text.insert(tk.END, f"  - ({gene.set_name}) {gene.name} [{gene.length:,} bp]\n", "value")
+                gene = item.gene
+                self.text.insert(tk.END, f"  - ({gene.set_name}) {gene.name} [{gene.length:,} bp]\n", "value")
 
         # Enabled Types
-        enabled_types = gs.get_enabled_types()
-        if enabled_types:
+        if bp.enabled_types:
             self.text.insert(tk.END, f"\nEnabled Entity Types:\n", "header")
-            for t in sorted(enabled_types):
+            for t in bp.enabled_types:
                 self.text.insert(tk.END, f"  - {t}\n", "value")
 
         # Effects
         self.text.insert(tk.END, "\n\nEFFECTS\n", "section")
         self.text.insert(tk.END, "=" * 40 + "\n\n")
 
-        effects = gs.get_all_effects()
-        global_effects = gs.get_global_effects()
+        effects = bp.gene_effects
+        global_effects = bp.global_effects
 
         if global_effects:
             self.text.insert(tk.END, "Global Effects:\n", "header")
