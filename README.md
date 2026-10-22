@@ -2,7 +2,7 @@
 
 **Status: Work in Progress**
 
-A virus simulation game where players configure and evolve a virus to infect cells. Built with Python and Tkinter.
+An educational simulation game where players configure and evolve a virus to infect cells. Built with Python and Tkinter.
 
 ## Project Structure
 
